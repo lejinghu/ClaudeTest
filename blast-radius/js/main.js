@@ -111,7 +111,17 @@ function currentMode() {
 }
 
 function getBaseViewBox() {
-  return computeLayout(currentMode()).viewBox;
+  const vb = computeLayout(currentMode()).viewBox;
+  const rect = MOVABLE.board.getBoundingClientRect();
+  if (!rect.width || !rect.height) return { ...vb, world: vb };
+
+  // Fit to WIDTH, not to the whole board. The tall board is 1348 units high
+  // but a phone only offers ~540px of map area: fitting all of it would scale
+  // everything to ~40%, dropping node touch targets to about 24px -- well
+  // under the 44px minimum in spec 6.3. Showing the full width and letting
+  // the player pan vertically keeps nodes finger-sized.
+  const windowHeight = Math.min(vb.height, vb.width * (rect.height / rect.width));
+  return { width: vb.width, height: windowHeight, world: vb };
 }
 
 function findWorkloadId(target) {
@@ -239,11 +249,13 @@ function renderEndTurnButton() {
 function fullRender() {
   const mode = currentMode();
   applyChrome(mode);
+  render(board, mode, viewStateFromGame());
   if (mode !== lastMode) {
+    // After render, so the board element is laid out and its rect is real --
+    // getBaseViewBox() needs the measured size to compute the width-fit window.
     controller.setBaseViewBox(getBaseViewBox());
     lastMode = mode;
   }
-  render(board, mode, viewStateFromGame());
   renderStatusCluster();
   renderOutages();
   renderFenceButtons();

@@ -19,7 +19,7 @@ export const FENCE_COST = 2;
 export const REPAIR_COST = 1;
 export const PATIENT_ZERO_TURN = 3;
 export const ATTACKER_START_TURN = 4;
-export const OUTAGE_POINTS_PER_TURN = 4;
+export const OUTAGE_POINTS_PER_TURN = 1 / 3;
 
 const WORKLOADS_BY_ID = Object.fromEntries(WORKLOADS.map((w) => [w.id, w]));
 const DEGREES = computeDegrees();
@@ -319,9 +319,22 @@ export function endTurn(state) {
 // ---------------------------------------------------------------------------
 
 export function computeScore(state) {
-  const containment = 60 * ((WORKLOADS.length - state.compromisedIds.size) / WORKLOADS.length);
+  // A workload counts as protected only if it is both uncompromised AND
+  // serving. The business does not care whether an application is down
+  // because an attacker took it or because a firewall rule cut its
+  // dependency -- so both cost the same. This is what stops "block
+  // everything on turn 1" from being the dominant strategy.
+  const lost = new Set(state.compromisedIds);
+  for (const outage of state.outages) lost.add(outage.workloadId);
+
+  const containment = 60 * ((WORKLOADS.length - lost.size) / WORKLOADS.length);
   const infraGroupsFenced = ["infra-dns", "infra-core"].filter((g) => state.fencedGroups.has(g)).length;
   const infrastructure = 20 * (infraGroupsFenced / 2);
+  // Gentle, gradual penalty. At 4 points per outage-turn the whole 20 points
+  // vanished after five turns of a single outage, so uptime was effectively
+  // binary and every strategy that fenced at all scored zero here. A third of
+  // a point per outage-turn keeps a real gradient across the range good play
+  // actually produces (roughly 0-60 outage-turns).
   const uptime = Math.max(0, 20 - OUTAGE_POINTS_PER_TURN * state.cumulativeOutageTurns);
   const total = Math.round(containment + infrastructure + uptime);
   return { containment, infrastructure, uptime, total };

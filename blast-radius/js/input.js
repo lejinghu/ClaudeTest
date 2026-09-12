@@ -53,15 +53,19 @@ export function createViewController(svg, { getBaseViewBox, onTap, findWorkloadI
     let x = cx - halfW;
     let y = cy - halfH;
     // Clamp so the map cannot be panned past its own edges (spec 6.2).
-    if (w >= base.width) {
-      x = (base.width - w) / 2;
+    // `base` is the window shown at zoom 1; `world` is the full board, which
+    // may be taller than that window (tall mode pans vertically).
+    const worldW = (base.world && base.world.width) || base.width;
+    const worldH = (base.world && base.world.height) || base.height;
+    if (w >= worldW) {
+      x = (worldW - w) / 2;
     } else {
-      x = clamp(x, 0, base.width - w);
+      x = clamp(x, 0, worldW - w);
     }
-    if (h >= base.height) {
-      y = (base.height - h) / 2;
+    if (h >= worldH) {
+      y = (worldH - h) / 2;
     } else {
-      y = clamp(y, 0, base.height - h);
+      y = clamp(y, 0, worldH - h);
     }
     return { x, y, w, h };
   }

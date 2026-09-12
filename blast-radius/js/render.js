@@ -71,7 +71,10 @@ export function render(board, mode, viewState) {
   const layout = computeLayout(mode);
   board.mode = mode;
   board.layout = layout;
-  board.svg.setAttribute("viewBox", `0 0 ${layout.viewBox.width} ${layout.viewBox.height}`);
+  // NOTE: the viewBox is owned by the view controller (input.js), which pans
+  // and zooms it. render() must not touch it -- writing the full-board viewBox
+  // here on every render used to clobber the controller's width-fit window,
+  // shrinking the tall board to ~40% and node touch targets to ~24px.
   board.svg.dataset.mode = mode;
 
   const style = NODE_STYLE[mode];
