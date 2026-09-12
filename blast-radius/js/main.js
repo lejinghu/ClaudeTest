@@ -268,6 +268,15 @@ function clearSelection() {
   ui.pendingMoveFrom = null;
 }
 
+// Clears every transient interaction flag (selection, in-progress move, an
+// open fence confirm) — used at turn/game boundaries so a half-finished
+// interaction never survives into the next turn or a restarted game.
+// `ui.debug` is a viewer preference and is left alone.
+function resetUiInteraction() {
+  clearSelection();
+  ui.fenceConfirm = null;
+}
+
 function handleTap({ workloadId }) {
   if (ui.fenceConfirm) return; // a confirm dialog is up; ignore map taps
   if (ui.pendingMoveFrom) {
@@ -432,6 +441,7 @@ function renderEndScreen() {
     </div>`;
   el.hidden = false;
   document.getElementById("restart-btn").addEventListener("click", () => {
+    resetUiInteraction();
     applyState(S.createInitialState(seed));
     el.hidden = true;
   });
@@ -440,7 +450,7 @@ function renderEndScreen() {
 // --- End Turn / debug / bottom sheet -----------------------------------
 
 MOVABLE.endTurnBtn.addEventListener("click", () => {
-  clearSelection();
+  resetUiInteraction();
   applyState(S.endTurn(gameState));
 });
 
