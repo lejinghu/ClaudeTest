@@ -1,0 +1,40 @@
+:root {
+  --broadcom-red: #cc092f;
+  --vmware-blue: #0091da;
+  --deep-black: #0a0b0d;
+  --panel-black: #16181d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--deep-black);
+  overflow: hidden;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 20%, #101826 0%, var(--deep-black) 70%);
+}
+
+#game-root {
+  box-shadow: 0 0 40px rgba(0, 145, 218, 0.25);
+  border: 2px solid #22262e;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+}
