@@ -50,7 +50,12 @@ that trade-off less sharp, it is the wrong change.
   exactly what a turn-based board needs.
 - ES modules (`<script type="module">`). Modern browsers only.
 - Must run by opening `index.html` from disk *and* when served over HTTP.
-- Must work at 1280×800 desktop. Mobile is out of scope for the slice.
+- **Must be fully playable on a phone.** Touch is a first-class input, not a
+  desktop layout that happens to survive a small screen. The target device is
+  a 390×844 phone in portrait. Landscape phone, tablet, and 1280×800 desktop
+  must all work. See Section 6.
+- No hover-only interactions anywhere. Touch devices have no hover state, so
+  any information reachable by hover must also be reachable by tap.
 
 **Location:** everything goes in a new `blast-radius/` directory at the repo
 root. Do **not** modify, move, or delete the existing Firewall Defender game
@@ -64,6 +69,7 @@ blast-radius/
   css/style.css
   data/estate.js      Topology data — the game design lives here
   js/rng.js           Seeded random number generator
+  js/layout.js        Node positions per layout mode (wide/tall). Pure.
   js/state.js         Pure game logic. NO DOM access whatsoever.
   js/render.js        Draws state to SVG. Read-only w.r.t. state.
   js/input.js         Click/key handling. Translates events to state actions.
@@ -315,12 +321,25 @@ score breakdown is the teaching moment — do not collapse it to one number.
 
 ---
 
-## 6. Rendering spec
+## 6. Rendering and input
 
-**Layout:** 1280×800. Left 960px is the SVG map; right 320px is the sidebar.
+### 6.1 Two layout modes
 
-**Map layout — fixed positions, no force-directed graph.** Four vertical zone
-columns, each a labelled rounded-rect band, nodes stacked evenly within:
+The map is inline SVG driven by a `viewBox`, so one coordinate space scales to
+any screen. Node positions come from `layout.js`, which exports a pure function
+`positions(mode)` returning `{id: {x, y}}` plus zone band rectangles.
+
+Mode is chosen by aspect ratio, not by user agent — never sniff the user agent:
+
+| Condition | Mode | viewBox |
+|---|---|---|
+| viewport width ≥ 900px | `wide` | `0 0 960 800` |
+| viewport width < 900px | `tall` | `0 0 420 1348` |
+
+Re-evaluate on `resize` and `orientationchange`. Switching modes must preserve
+game state — only positions change.
+
+**`wide` mode — four vertical zone columns:**
 
 | Column | x centre | Zone |
 |---|---|---|
@@ -329,37 +348,130 @@ columns, each a labelled rounded-rect band, nodes stacked evenly within:
 | 3 | 660 | `dev` (5 nodes) |
 | 4 | 860 | `mgmt` (4 nodes) |
 
-Fixed layout is deliberate: it is far simpler than force-directed, it is
-stable across turns (so the player builds spatial memory), and zone columns
-make segmentation legible at a glance.
+**`tall` mode — four stacked zone bands, nodes in a grid of up to 3 per row:**
 
-**Node rendering:** circle, r=18, with the workload name in 11px text below.
+| Band | Rows | y range |
+|---|---|---|
+| `shared` (5) | 3 + 2 | 20–280 |
+| `prod` (10) | 3 + 3 + 3 + 1 | 296–776 |
+| `dev` (5) | 3 + 2 | 792–1052 |
+| `mgmt` (4) | 2 + 2 | 1068–1328 |
 
-| State | Fill | Stroke |
+Band height is `24px label + (rows × 110) + 16px padding`, with a 16px gap
+between bands; the four bands plus margins total the 1348 viewBox height.
+Derive the values in code from that formula rather than hard-coding the table,
+so changing a band's contents cannot silently break the layout.
+
+Within a row, x centres are 90 / 210 / 330 for three nodes, 150 / 270 for two,
+210 for one. Row pitch is 110px; the first row's centre sits 55px below the
+band's label baseline.
+
+Fixed layout in both modes is deliberate: it is simpler than force-directed,
+stable across turns so the player builds spatial memory, and zone grouping
+makes segmentation legible at a glance.
+
+### 6.2 Pan and zoom
+
+Both modes support pan and zoom by manipulating the `viewBox`. Required
+because at `tall` scale a 24-node map is legible but tight, and players will
+want to inspect a cluster.
+
+- Touch: one-finger drag pans, two-finger pinch zooms.
+- Mouse: drag pans, wheel zooms.
+- Clamp zoom to 0.8×–3×; clamp pan so the map cannot leave the viewport.
+- A **Reset view** button returns to the fit-to-screen `viewBox`.
+- Set `touch-action: none` on the SVG so the browser does not steal the
+  gestures, and `overscroll-behavior: none` on `body` to kill pull-to-refresh.
+
+### 6.3 Node and edge rendering
+
+Nodes are a circle plus a label below. Radius and label size are per mode:
+
+| Mode | Node radius | Label | Hit target |
+|---|---|---|---|
+| `wide` | 18 | 11px | r=24 transparent circle |
+| `tall` | 22 | 13px | r=30 transparent circle |
+
+The transparent hit circle is required, not optional. A visible r=22 node on a
+phone is about a 41px touch target; the r=30 hit circle brings it to ~56px,
+comfortably above the 44px minimum. Draw hit circles in a layer above the
+visible nodes with `fill: transparent` and `pointer-events: all`.
+
+| Node state | Fill | Stroke |
 |---|---|---|
 | Normal | `#2a3342` | `#4a5568` |
 | Probed | `#2a3342` | `#38bdf8` 3px + small blue dot badge |
 | Compromised (detected) | `#7f1d1d` | `#ef4444` 3px, pulsing via CSS |
 | Outage | `#78350f` | `#f59e0b` 3px |
+| Selected | current fill | `#e2e8f0` 3px halo |
 | Inside fenced group | normal fill, plus group band gets a dashed border |
 
-**Edge rendering:**
-
-| State | Stroke |
+| Edge state | Stroke |
 |---|---|
 | Unobserved | not drawn at all |
-| Observed, allowed | `#475569` 1px |
-| Observed, blocked | `#ef4444` 1.5px, `stroke-dasharray: 4 3` |
+| Observed, allowed | `#475569` 1px (`wide`) / 1.5px (`tall`) |
+| Observed, blocked | `#ef4444` 1.5px (`wide`) / 2px (`tall`), `stroke-dasharray: 4 3` |
 
 **Colour palette (dark theme):** background `#0f172a`, panels `#1e293b`,
 text `#e2e8f0`, muted text `#94a3b8`, accent `#38bdf8`, danger `#ef4444`,
 warning `#f59e0b`, success `#22c55e`.
 
-**Sidebar contains, top to bottom:** turn counter (`Turn 7 / 15`), AP
-remaining as 3 pips, live score with its three components, probe count
-(`3 / 4 placed`), active outage list with Repair buttons, the five fence
-buttons with AP costs, an event log (last 8 events, newest first), and the
-End Turn button.
+### 6.4 Tap-to-select, then act
+
+Actions are **two-step on every device**, not just touch. Tapping a node
+selects it and opens an action bar naming the workload and its available
+actions with AP costs. Nothing is committed by the tap itself.
+
+This is not only a fat-finger guard. Ring-fencing is irreversible by design
+(Section 3.3), so a single stray tap must never be able to commit it. Fence
+actions additionally require a confirm step that states the consequence:
+
+> Ring-fence `zone-prod`? 31 observed flows will be allowed, 9 unobserved
+> flows will be blocked. This cannot be undone.
+
+Showing the allowed/blocked counts at the moment of decision is a teaching
+moment — it is the player's last chance to notice they have not observed
+enough. Do not omit it.
+
+Tap on empty space clears the selection.
+
+**Distinguishing tap from pan:** a pointer interaction counts as a tap only if
+it moves less than 10px and lasts under 500ms. Otherwise it is a pan. Use
+Pointer Events (`pointerdown`/`pointermove`/`pointerup`), which cover mouse,
+touch, and stylus with one code path — do not write separate mouse and touch
+handlers.
+
+### 6.5 Chrome layout
+
+The same information appears in both modes; only its arrangement changes.
+
+**`wide`:** map on the left, a 320px sidebar on the right containing, top to
+bottom: turn counter (`Turn 7 / 15`), AP remaining as 3 pips, live score with
+its three components, probe count (`3 / 4 placed`), active outage list with
+Repair buttons, the five fence buttons with AP costs, an event log (last 8
+events, newest first), and the End Turn button.
+
+**`tall`:** three fixed regions.
+
+1. **Status bar, pinned top, ~56px.** Turn, AP pips, score. Always visible —
+   these are what the player checks constantly.
+2. **Map, filling the space between.**
+3. **Bottom sheet, pinned bottom.** Collapsed it shows the End Turn button
+   plus an outage count badge if any are active. Dragging it up or tapping the
+   handle expands it to a tabbed panel: **Fences** / **Outages** / **Log**.
+
+End Turn must be reachable with a thumb without expanding the sheet — it is
+pressed 15 times per game and is the most-used control.
+
+**Safe areas:** use `<meta name="viewport" content="width=device-width,
+initial-scale=1, viewport-fit=cover">` and pad the status bar and bottom sheet
+with `env(safe-area-inset-top)` / `env(safe-area-inset-bottom)` so controls
+clear the notch and home indicator.
+
+**Minimum touch target for every button is 44×44px**, including the bottom
+sheet tabs and the Repair buttons.
+
+### 6.6 Event log wording
 
 **Event log messages must name the product concept.** Not "flow found" but
 `Flow discovered: app-01 → db-01 (3306)`. Not "blocked" but
@@ -377,15 +489,23 @@ Commit after each phase.
 No other code. *Acceptance:* open a console, import it, confirm 24 workloads
 and exactly 92 flows, and that every flow's endpoints resolve to real workload ids.
 
-**Phase 1 — Static map.** `index.html`, `css/style.css`, `render.js` drawing
-all workloads at fixed positions with zone bands, and *all* flows visible
-(temporarily, to verify the topology). *Acceptance:* the estate renders,
-looks like a datacenter diagram, no console errors.
+**Phase 1 — Static map, both modes.** `index.html`, `css/style.css`,
+`layout.js`, `render.js` drawing all workloads with zone bands, and *all*
+flows visible (temporarily, to verify the topology). Both layout modes and the
+mode switch on resize. *Acceptance:* the estate renders as a readable
+datacenter diagram at 1280×800 **and** at 390×844; rotating the device
+reflows without losing state; no console errors.
 
-**Phase 2 — Fog, probes, turns.** `rng.js`, `state.js` with turn advance and
-observation. Probes placeable by click. Edges hidden until observed. End Turn
-works. *Acceptance:* placing probes and ending turns progressively reveals the
-map; the nightly flows only appear on turns 7 and 14.
+Build both modes here, at the start. Retrofitting a second layout after the
+interaction code exists is materially harder than writing it now.
+
+**Phase 2 — Fog, probes, turns, touch input.** `rng.js`, `state.js` with turn
+advance and observation. Pointer Events with tap/pan discrimination, pan and
+zoom, tap-to-select and the action bar. Edges hidden until observed. End Turn
+works. *Acceptance:* on a real phone (or a browser device-emulation mode),
+probes can be placed and turns ended using only touch; pinch-zoom works;
+panning never accidentally places a probe; the nightly flows only appear on
+turns 7 and 14.
 
 **Phase 3 — The attacker.** Spread logic, detection via probes, the turn-3
 intrusion warning, event log entries. *Acceptance:* the attacker spreads one
@@ -416,7 +536,9 @@ leaderboard mode possible for free.
 
 **Debug toggle.** Pressing `D` reveals every flow and the attacker's true
 position, with a `DEBUG` badge on screen. Ten minutes of work; indispensable
-for verifying Phases 3 and 4.
+for verifying Phases 3 and 4. Provide a touch equivalent — a long-press
+(800ms) on the turn counter — or Phases 3 and 4 cannot be verified on the
+device they most need verifying on.
 
 ---
 
@@ -424,6 +546,9 @@ for verifying Phases 3 and 4.
 
 - All six phases complete, each committed separately.
 - Game is playable start to finish by opening `blast-radius/index.html`.
+- **A full 15-turn game is completable on a 390×844 phone using only touch**,
+  with no control unreachable, no text below 12px, and no touch target under
+  44px. Verify in portrait and landscape.
 - No console errors or warnings during a full playthrough.
 - No build step, no dependencies, no network requests at runtime.
 - The existing Firewall Defender game at the repo root still works, untouched.
