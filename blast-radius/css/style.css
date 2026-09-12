@@ -450,6 +450,7 @@ button {
 .event-log li.log-discovery { border-left-color: var(--accent); }
 .event-log li.log-fence { border-left-color: var(--warning); }
 .event-log li.log-outage { border-left-color: var(--warning); }
+.event-log li.log-probe { border-left-color: var(--success); }
 
 .end-turn-btn {
   min-height: 48px;
