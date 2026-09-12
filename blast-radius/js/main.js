@@ -12,6 +12,8 @@ import { createViewController, attachDebugKey, attachLongPress } from "./input.j
 import { randomSeed } from "./rng.js";
 import * as S from "./state.js";
 
+const FLOWS_BY_ID = Object.fromEntries(FLOWS.map((f) => [f.id, f]));
+
 // --- seed -----------------------------------------------------------------
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -163,7 +165,10 @@ function renderOutages() {
       const row = document.createElement("div");
       row.className = "outage-row";
       const wl = workloadById(outage.workloadId);
-      row.innerHTML = `<span>${wl ? wl.name : outage.workloadId}</span>`;
+      const flow = FLOWS_BY_ID[outage.flowId];
+      const srcWl = flow ? workloadById(flow.from) : null;
+      const detail = flow ? `blocked from ${srcWl ? srcWl.name : flow.from} (${flow.port})` : "";
+      row.innerHTML = `<span>${wl ? wl.name : outage.workloadId}<br><span class="muted" style="font-size:11px">${detail}</span></span>`;
       const btn = document.createElement("button");
       btn.className = "repair-btn";
       btn.type = "button";
