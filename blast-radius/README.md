@@ -1,8 +1,14 @@
 # Blast Radius
 
-A five-minute, turn-based micro-segmentation game. Open `index.html` (from
-disk or a static server) and defend a 24-workload datacenter against a
-lateral-moving attacker over 15 turns.
+A five-minute, turn-based micro-segmentation game. Open `index.html` and
+defend a 24-workload datacenter against a lateral-moving attacker over 15
+turns.
+
+> This game is plain ES modules (`<script type="module">`), so it works
+> when double-clicked in Firefox, but Chrome blocks module scripts loaded
+> from a bare `file://` URL (a Chrome-specific CORS rule, unrelated to this
+> game). In Chrome, serve the folder instead: `python3 -m http.server` from
+> the repo root, then open `http://localhost:8000/blast-radius/`.
 
 ## How to play
 
