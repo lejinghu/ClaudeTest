@@ -173,22 +173,22 @@ function renderNodes(board, layout, viewState, style) {
     if (!pos) continue;
 
     const isProbed = viewState.probedIds.has(workload.id);
-    const isCompromised =
-      viewState.compromisedVisibleIds.has(workload.id) ||
-      (viewState.debug && viewState.debugCompromisedIds.has(workload.id));
+    // Detected: a confirmed, permanent red alert (spec 3.4). Debug-only
+    // reveal: the attacker's true position, shown distinctly (dashed) so
+    // testing/debugging never gets confused with a real detection.
+    const isDetected = viewState.compromisedVisibleIds.has(workload.id);
+    const isDebugCompromised = viewState.debug && viewState.debugCompromisedIds.has(workload.id) && !isDetected;
     const isOutage = viewState.outageIds.has(workload.id);
     const isSelected = viewState.selectedId === workload.id;
 
     let stateClass = "node-normal";
-    if (isCompromised) stateClass = "node-compromised";
+    if (isDetected) stateClass = "node-compromised";
     else if (isOutage) stateClass = "node-outage";
     else if (isProbed) stateClass = "node-probed";
 
     const circle = el("circle", {
       class: `node-circle ${stateClass}${isSelected ? " node-selected" : ""}${
-        viewState.debug && viewState.debugCompromisedIds.has(workload.id) && !isCompromised
-          ? " node-debug-compromised"
-          : ""
+        isDebugCompromised ? " node-debug-compromised" : ""
       }`,
       cx: pos.x,
       cy: pos.y,
