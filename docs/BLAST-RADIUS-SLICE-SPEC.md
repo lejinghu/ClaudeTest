@@ -13,11 +13,19 @@ Tuning happens in Phase 6, after the game runs.
 
 ## 1. What this is
 
-`Blast Radius` is a turn-based strategy game promoting VMware vDefend
-Security Services Platform (SSP). The player defends a virtual datacenter
-against an attacker spreading laterally between workloads, using the same
-loop the real product sells: **observe traffic → understand the estate →
-enforce segmentation → live with the consequences.**
+`Blast Radius` is a turn-based strategy game about micro-segmentation. The
+player defends a virtual datacenter against an attacker spreading laterally
+between workloads, using the loop that lateral-security tooling exists to
+support: **observe traffic → understand the estate → enforce segmentation →
+live with the consequences.**
+
+**Naming constraint — applies to all code, comments, UI strings, the event
+log, the README and commit messages.** Do not use trademarked or product-brand
+terms anywhere: no VMware, Broadcom, vDefend, NSX, SSP, or "Security Services
+Platform". Generic industry vocabulary is correct and expected —
+micro-segmentation, distributed firewall, east-west traffic, lateral movement,
+zero trust, ring-fencing, segmentation score, telemetry, workload, flow,
+blast radius, allow-list.
 
 The vertical slice is **Act I–II only**: one estate, 15 turns, one attacker,
 one score. Roughly five minutes of play.
@@ -553,7 +561,10 @@ device they most need verifying on.
 - No build step, no dependencies, no network requests at runtime.
 - The existing Firewall Defender game at the repo root still works, untouched.
 - `blast-radius/README.md` explains how to play in under 200 words, and
-  states which SSP capability each mechanic maps to.
+  describes each mechanic in generic micro-segmentation terms.
+- No trademarked or brand terms anywhere in the repo (see Section 1):
+  `grep -riE "vmware|broadcom|vdefend|nsx|security services platform" blast-radius/`
+  returns nothing.
 - A short tuning report from Phase 6 in the final commit message or the README.
 
 ## 10. If something is ambiguous
