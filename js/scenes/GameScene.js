@@ -11,7 +11,7 @@ class GameScene extends Phaser.Scene {
     this.spawnDelay = 900;
     this.fireDelay = 260;
     this.baseFireDelay = 260;
-    this.dfw1234Triggered = false;
+    this.rule1234Triggered = false;
     this.invulnerableUntil = 0;
     this.shieldActive = false;
     this.gameOver = false;
@@ -148,7 +148,7 @@ class GameScene extends Phaser.Scene {
 
   fireBullet() {
     if (this.gameOver) return;
-    const b = this.bullets.create(this.player.x, this.player.y - 30, "dfw-bullet");
+    const b = this.bullets.create(this.player.x, this.player.y - 30, "player-bullet");
     b.setVelocityY(-420);
   }
 
@@ -178,7 +178,7 @@ class GameScene extends Phaser.Scene {
     const { width } = this.scale;
     const x = Phaser.Math.Between(30, width - 30);
     const roll = Math.random();
-    let key = "powerup-ssp";
+    let key = "powerup-boost";
     if (roll > 0.8) key = "powerup-zerotrust";
     else if (roll > 0.5) key = "powerup-shield";
 
@@ -236,7 +236,7 @@ class GameScene extends Phaser.Scene {
     threat.destroy();
     const rewards = { "threat-malware": 15, "threat-ransomware": 20, "threat-exfil": 25 };
     this.score += rewards[threat.threatType] || 10;
-    this.checkDfw1234();
+    this.checkRule1234();
     this.updateHud();
   }
 
@@ -248,7 +248,7 @@ class GameScene extends Phaser.Scene {
     this.time.delayedCall(80, () => boss.active && boss.clearTint());
     this.score += 50;
     this.updateHud();
-    this.checkDfw1234();
+    this.checkRule1234();
 
     if (boss.hp <= 0) {
       this.spawnSparks(boss.x, boss.y, 24);
@@ -277,9 +277,9 @@ class GameScene extends Phaser.Scene {
     const type = powerup.powerupType;
     powerup.destroy();
 
-    if (type === "powerup-ssp") {
+    if (type === "powerup-boost") {
       this.applyRapidFire();
-      this.showBanner("SSP 5.2 BOOST ONLINE", 0x0091da, 1000);
+      this.showBanner("FIREWALL BOOST ONLINE", 0x0091da, 1000);
     } else if (type === "powerup-shield") {
       this.activateShield();
       this.showBanner("MICRO-SEGMENTATION SHIELD", 0x2ecc71, 1000);
@@ -334,16 +334,16 @@ class GameScene extends Phaser.Scene {
     if (this.integrity <= 0) this.loseGame();
   }
 
-  checkDfw1234() {
-    if (!this.dfw1234Triggered && this.score >= 1234) {
-      this.dfw1234Triggered = true;
-      this.triggerDfwRule1234();
+  checkRule1234() {
+    if (!this.rule1234Triggered && this.score >= 1234) {
+      this.rule1234Triggered = true;
+      this.triggerRule1234Overdrive();
     }
   }
 
-  triggerDfwRule1234() {
+  triggerRule1234Overdrive() {
     this.cameras.main.flash(500, 0, 145, 218);
-    this.showBanner("DFW RULE #1234 ACTIVATED\nALL THREATS BLOCKED", 0x0091da, 2200);
+    this.showBanner("SECURITY RULE #1234 ACTIVATED\nALL THREATS BLOCKED", 0x0091da, 2200);
 
     this.threats.getChildren().slice().forEach((t) => {
       this.spawnSparks(t.x, t.y);

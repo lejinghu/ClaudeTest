@@ -15,7 +15,7 @@ class BootScene extends Phaser.Scene {
     this.buildThreatTexture("threat-ransomware", 0xff3b3b, "spike");
     this.buildThreatTexture("threat-exfil", 0xff8a00, "triangle");
     this.buildBossTexture();
-    this.buildPowerupTexture("powerup-ssp", 0x0091da, "bolt");
+    this.buildPowerupTexture("powerup-boost", 0x0091da, "bolt");
     this.buildPowerupTexture("powerup-shield", 0x2ecc71, "hex");
     this.buildPowerupTexture("powerup-zerotrust", 0xffd700, "star");
     this.buildSparkTexture();
@@ -47,7 +47,7 @@ class BootScene extends Phaser.Scene {
     g.fillRoundedRect(0, 0, 8, 20, 3);
     g.fillStyle(0xffffff, 1);
     g.fillRoundedRect(2, 2, 4, 6, 2);
-    g.generateTexture("dfw-bullet", 8, 20);
+    g.generateTexture("player-bullet", 8, 20);
     g.destroy();
   }
 

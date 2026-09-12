@@ -28,10 +28,10 @@ class GameOverScene extends Phaser.Scene {
       color: "#ffffff",
     }).setOrigin(0.5);
 
-    const reachedDfw = this.finalScore >= 1234;
-    const statusLines = reachedDfw
-      ? ["DFW Rule #1234 was activated —", "your segmentation held under fire."]
-      : ["Reach a score of 1234 next run to", "unlock DFW Rule #1234 overdrive."];
+    const reachedRule1234 = this.finalScore >= 1234;
+    const statusLines = reachedRule1234
+      ? ["Security Rule #1234 was activated —", "your segmentation held under fire."]
+      : ["Reach a score of 1234 next run to", "unlock Security Rule #1234 overdrive."];
 
     this.add.text(width / 2, 200, statusLines.join("\n"), {
       fontFamily: "Segoe UI, Arial",
@@ -45,12 +45,10 @@ class GameOverScene extends Phaser.Scene {
     this.add.text(width / 2, 320, [
       "Real threats move laterally in seconds.",
       "",
-      "Broadcom VMware vDefend Distributed",
-      "Firewall (DFW) and the Service-defined",
-      "Security Platform (SSP) 5.2 bring",
-      "micro-segmentation and zero-trust",
-      "controls to every workload — before",
-      "attackers get this far.",
+      "A modern distributed firewall with",
+      "zero-trust micro-segmentation stops",
+      "them before they ever reach a",
+      "workload — no matter where it runs.",
     ].join("\n"), {
       fontFamily: "Segoe UI, Arial",
       fontSize: "12px",

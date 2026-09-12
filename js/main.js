@@ -21,4 +21,4 @@ const config = {
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
 };
 
-window.DFW_GAME = new Phaser.Game(config);
+window.FIREWALL_GAME = new Phaser.Game(config);

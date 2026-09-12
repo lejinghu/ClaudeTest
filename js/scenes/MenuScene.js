@@ -10,28 +10,14 @@ class MenuScene extends Phaser.Scene {
 
     this.add.rectangle(width / 2, 90, width - 40, 130, 0x0a0b0d, 0.0);
 
-    this.add.text(width / 2, 60, "BROADCOM", {
-      fontFamily: "Segoe UI, Arial",
-      fontSize: "22px",
-      color: "#cc092f",
-      fontStyle: "bold",
-    }).setOrigin(0.5);
-
-    this.add.text(width / 2, 88, "VMware vDefend", {
-      fontFamily: "Segoe UI, Arial",
-      fontSize: "26px",
-      color: "#0091da",
-      fontStyle: "bold",
-    }).setOrigin(0.5);
-
-    this.add.text(width / 2, 150, "DFW DEFENDER", {
+    this.add.text(width / 2, 120, "FIREWALL DEFENDER", {
       fontFamily: "Segoe UI, Arial",
       fontSize: "40px",
       color: "#ffffff",
       fontStyle: "bold",
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, 190, "Distributed Firewall · Service-defined Security Platform 5.2", {
+    this.add.text(width / 2, 160, "Distributed Firewall · Zero Trust Security v5.2", {
       fontFamily: "Segoe UI, Arial",
       fontSize: "13px",
       color: "#8fb6c9",
@@ -44,14 +30,14 @@ class MenuScene extends Phaser.Scene {
 
     const lines = [
       "Micro-segment the data center.",
-      "Deploy DFW rules to neutralize inbound",
+      "Deploy firewall rules to neutralize inbound",
       "threats before they reach your VMs.",
       "",
-      "Collect SSP 5.2 boosts, Zero-Trust",
+      "Collect Firewall Boosts, Zero-Trust",
       "pulses, and Micro-seg shields.",
       "",
       "Hit score 1234 to trigger the",
-      "legendary DFW RULE #1234 overdrive!",
+      "legendary SECURITY RULE #1234 overdrive!",
     ];
 
     this.add.text(width / 2, panelY, lines.join("\n"), {
@@ -84,7 +70,7 @@ class MenuScene extends Phaser.Scene {
       color: "#6f8794",
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, height - 24, "Not an official Broadcom or VMware product — fan-made promo game.", {
+    this.add.text(width / 2, height - 24, "A fan-made educational arcade game.", {
       fontFamily: "Segoe UI, Arial",
       fontSize: "10px",
       color: "#4a5761",

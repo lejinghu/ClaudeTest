@@ -1,6 +1,6 @@
 :root {
-  --broadcom-red: #cc092f;
-  --vmware-blue: #0091da;
+  --alert-red: #cc092f;
+  --shield-blue: #0091da;
   --deep-black: #0a0b0d;
   --panel-black: #16181d;
 }
