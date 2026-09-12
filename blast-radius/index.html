@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Blast Radius</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app" class="app">
+
+  <!-- ===================================================================
+       Movable content blocks. main.js reparents each of these into a
+       mode-specific slot on layout-mode switch (wide sidebar vs tall status
+       bar / bottom sheet, spec 6.5). Every element keeps its id no matter
+       which slot currently holds it, so game logic and tests never care
+       which layout mode is active. Nothing here is ever duplicated.
+       =================================================================== -->
+
+  <div id="status-cluster" class="status-cluster">
+    <div id="turn-counter" class="turn-counter" data-testid="turn-counter">Turn 1 / 15</div>
+    <div id="ap-indicator" class="ap-indicator" data-testid="ap-indicator" aria-label="Action points remaining">
+      <span class="ap-pip" data-pip-index="0"></span>
+      <span class="ap-pip" data-pip-index="1"></span>
+      <span class="ap-pip" data-pip-index="2"></span>
+    </div>
+    <div id="score-readout" class="score-readout" data-testid="score-readout">
+      <span class="score-total" data-testid="score-total">0</span>
+      <span class="score-breakdown muted" data-testid="score-breakdown"></span>
+    </div>
+  </div>
+
+  <div id="probe-count" class="probe-count" data-testid="probe-count">0 / 4 probes placed</div>
+
+  <section id="outage-section" class="panel-section">
+    <h2>Outages</h2>
+    <div id="outage-list" class="outage-list" data-testid="outage-list">
+      <p class="muted panel-empty">No outages.</p>
+    </div>
+  </section>
+
+  <section id="fence-section" class="panel-section">
+    <h2>Ring-fence a group</h2>
+    <div id="fence-buttons" class="fence-buttons" data-testid="fence-buttons"></div>
+  </section>
+
+  <section id="log-section" class="panel-section">
+    <h2>Event log</h2>
+    <ol id="event-log" class="event-log" data-testid="event-log"></ol>
+  </section>
+
+  <button id="end-turn-btn" class="end-turn-btn" type="button" data-testid="end-turn-btn">
+    End Turn
+  </button>
+
+  <svg id="board" class="board" tabindex="0" aria-label="Datacenter map"></svg>
+  <div id="intrusion-banner" class="intrusion-banner" hidden>An intrusion is underway.</div>
+  <button id="reset-view-btn" class="reset-view-btn" type="button">Reset view</button>
+  <div id="seed-display" class="seed-display"></div>
+  <div id="debug-badge" class="debug-badge" hidden>DEBUG</div>
+  <div id="action-bar" class="action-bar" hidden></div>
+
+  <!-- ===================================================================
+       Layout shells. Exactly one is visible at a time (CSS, driven by a
+       class main.js sets on #app after measuring viewport width per spec
+       6.1). Each shell just provides slots for the movable blocks above.
+       =================================================================== -->
+
+  <div id="wide-chrome" class="wide-chrome">
+    <main id="map-wrap" class="map-wrap"></main>
+    <aside id="sidebar" class="sidebar">
+      <div id="wide-status-slot" class="chrome-slot"></div>
+      <div id="wide-probe-slot" class="chrome-slot"></div>
+      <div id="wide-outage-slot" class="chrome-slot"></div>
+      <div id="wide-fence-slot" class="chrome-slot"></div>
+      <div id="wide-log-slot" class="chrome-slot chrome-slot-grow"></div>
+      <div id="wide-endturn-slot" class="chrome-slot"></div>
+    </aside>
+  </div>
+
+  <div id="tall-chrome" class="tall-chrome">
+    <header id="status-bar" class="status-bar">
+      <div id="tall-status-slot" class="chrome-slot"></div>
+    </header>
+
+    <main id="map-wrap-tall" class="map-wrap map-wrap-tall"></main>
+
+    <div id="bottom-sheet" class="bottom-sheet">
+      <div id="sheet-panel" class="sheet-panel">
+        <div class="sheet-tabs" role="tablist">
+          <button class="sheet-tab" data-tab="fences" type="button">Fences</button>
+          <button class="sheet-tab" data-tab="outages" type="button">Outages</button>
+          <button class="sheet-tab" data-tab="log" type="button">Log</button>
+        </div>
+        <div class="sheet-content">
+          <div class="sheet-tab-panel" data-tab-panel="fences"></div>
+          <div class="sheet-tab-panel" data-tab-panel="outages"></div>
+          <div class="sheet-tab-panel" data-tab-panel="log"></div>
+        </div>
+      </div>
+      <div id="sheet-bar" class="sheet-bar">
+        <button id="sheet-handle" class="sheet-handle" type="button" aria-label="Expand panel">
+          <span class="sheet-handle-grip"></span>
+          <span id="outage-badge" class="outage-badge" data-testid="outage-badge" hidden>0</span>
+        </button>
+        <div id="tall-endturn-slot" class="chrome-slot chrome-slot-endturn"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="end-screen" class="end-screen" data-testid="end-screen" hidden></div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
