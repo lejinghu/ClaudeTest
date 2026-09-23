@@ -51,6 +51,32 @@ as a single downloaded or attached file.
 
 `1`–`7` choose an action, `Esc` cancels, `U` undoes, `E` ends your turn.
 
+## Playtesting
+
+The page has two playtest features:
+
+- **Threat highlight** (on by default; switch it off in **Settings**). On
+  your turn, a dashed route shows the Attacker's quickest way to one of your
+  real jewels. A panel says how many actions it needs, in red if it could
+  happen on its next turn.
+- **Feedback and game records.** After each game, players rate it from 1 to 5
+  and can add a comment. Every finished game is saved in the browser with the
+  settings, seed, each action, time per turn and the result. You can download
+  one game or all of them as JSON, from the end screen or from **Settings**.
+  Nothing leaves the browser unless you download it.
+
+To run a session: have 5–10 people play two or three games each on one
+device, then download all the playtests and run:
+
+```
+node ringfence/tools/playtest-report.js ringfence-playtests-*.json
+```
+
+The report shows win rate and average fun rating per AI level, game length
+in minutes and rounds, time per turn, outages, the Defender's action mix, how
+players lost, and all comments. The design doc (Section 11) lists the
+targets to compare against.
+
 ## Files
 
 | File | What it does |
@@ -63,6 +89,7 @@ as a single downloaded or attached file.
 | `js/ui.js` | SVG board, input handling, event log, undo, end-of-game debrief. |
 | `tools/build.js` | Inlines `css/` and `js/` into `index.html`. Run it after any change; `--check` reports whether `index.html` is stale. The Pages workflow also runs it before deploying. |
 | `tools/sim.js` | Headless simulator for balance numbers, plus an invariant fuzzer. |
+| `tools/playtest-report.js` | Summarises downloaded human playtest records. |
 | `tools/defender-bot.js` | A simple scripted Defender, used only by the simulator. |
 
 ## The Attacker AI

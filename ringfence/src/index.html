@@ -44,6 +44,8 @@
 
     <div id="meters" class="meters"></div>
 
+    <div id="threat" class="threat-box" aria-live="polite" hidden></div>
+
     <div id="setup-panel" class="card" hidden>
       <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, each in a different app. The Attacker can see where your tokens are, but not what they are.</p>
       <p class="muted small">Tap a cell to place a token (Jewels first). Tap a token to turn a Jewel into a Sensor, or to remove a Sensor. Tap another cell in the same app to move its token there. Careful: a Jewel on row 1 or in the storefront H sits on an exit.</p>
@@ -98,7 +100,13 @@
           <option value="score">−1 score each, no limit</option>
         </select>
       </label>
+      <label class="check"><input type="checkbox" id="set-threat" /> Highlight the Attacker’s quickest route to your jewels</label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
+      <div class="playtest">
+        <span id="pt-count" class="small muted"></span>
+        <button id="btn-pt-dl" class="btn ghost" type="button">Download</button>
+        <button id="btn-pt-clear" class="btn ghost" type="button">Clear</button>
+      </div>
       <p class="muted small">Add <code>?seed=abc</code> to the URL to replay the same random setup and AI rolls.</p>
     </details>
 
@@ -113,6 +121,23 @@
     <h2 id="end-title"></h2>
     <p id="end-reason"></p>
     <div id="end-debrief"></div>
+    <div class="feedback">
+      <h3>Playtest feedback</h3>
+      <p class="muted small">How fun was that game?</p>
+      <div class="rate" id="rate">
+        <button class="btn" data-rate="1" type="button">1<span>Dull</span></button>
+        <button class="btn" data-rate="2" type="button">2</button>
+        <button class="btn" data-rate="3" type="button">3<span>OK</span></button>
+        <button class="btn" data-rate="4" type="button">4</button>
+        <button class="btn" data-rate="5" type="button">5<span>Great</span></button>
+      </div>
+      <textarea id="fb-comment" rows="2" placeholder="Anything confusing, boring or great? (optional)"></textarea>
+      <p id="fb-status" class="muted small"></p>
+      <div class="row">
+        <button id="btn-dl-game" class="btn" type="button">Download this game</button>
+        <button id="btn-dl-all" class="btn" type="button">Download all playtests</button>
+      </div>
+    </div>
     <div class="row">
       <button id="btn-review" class="btn" type="button">Review board</button>
       <button id="btn-again" class="btn primary" type="button">Play again</button>

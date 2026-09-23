@@ -258,3 +258,29 @@ code { font-size: 0.9em; }
   .meter.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .lg-odds { width: auto; height: auto; background: none; color: var(--stone); font-size: 10px; font-weight: 700; }
+
+/* Threat highlight */
+.threat-box { border-radius: 12px; padding: 10px 12px; font-size: 14px; border: 1px solid var(--line); background: var(--surface); }
+.threat-box[hidden] { display: none; }
+.threat-box.danger { border-color: var(--stone); background: color-mix(in srgb, var(--stone) 12%, var(--surface)); }
+.threat-box.warn { border-color: var(--target); background: color-mix(in srgb, var(--target) 12%, var(--surface)); }
+.threat .threat-cell { fill: none; stroke-width: 2.5; stroke-dasharray: 5 4; }
+.threat.danger .threat-cell { stroke: var(--stone); fill: color-mix(in srgb, var(--stone) 10%, transparent); }
+.threat.warn .threat-cell { stroke: var(--target); }
+.threat.calm .threat-cell { stroke: var(--muted); opacity: 0.6; }
+.threat .threat-target { fill: none; stroke-width: 3; }
+.threat.danger .threat-target { stroke: var(--stone); animation: throb 1.2s ease-in-out infinite; }
+.threat.warn .threat-target { stroke: var(--target); }
+.threat.calm .threat-target { stroke: var(--muted); }
+@keyframes throb { 50% { stroke-opacity: 0.35; } }
+
+/* Playtest feedback */
+.feedback { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--line); }
+.rate { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 6px 0; }
+.rate .btn { min-height: 48px; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 17px; }
+.rate .btn span { font-size: 10px; font-weight: 500; color: var(--muted); }
+.rate .btn.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.rate .btn.sel span { color: var(--accent-ink); }
+.feedback textarea { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 8px 10px; font: inherit; resize: vertical; }
+.playtest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.playtest span { flex: 1 1 100%; }

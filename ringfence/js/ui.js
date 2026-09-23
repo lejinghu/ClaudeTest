@@ -22,7 +22,8 @@
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight' };
+  const VERSION = 'v0.4';
+  const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
   } catch (e) { /* storage unavailable: defaults are fine */ }
@@ -31,7 +32,8 @@
     try { localStorage.setItem('ringfence.settings', JSON.stringify(settings)); } catch (e) { /* ignore */ }
   };
 
-  let rng = RF.makeRng(params.get('seed') || String(Date.now()));
+  const seedStr = params.get('seed') || String(Date.now());
+  let rng = RF.makeRng(seedStr);
 
   // Two swap cost rules are being playtested (design doc Section 11).
   const SWAP_RULES = {
@@ -62,6 +64,8 @@
     busy: false,
     selected: null,
     stats: null,
+    record: null, // playtest record for the current game
+    turnStart: 0,
   };
 
   function newStats() {
@@ -90,6 +94,21 @@
     if (err) return toast(err);
     applySwapRule();
     ui.state = RF.newGame(ui.setup, { rng });
+    ui.record = {
+      version: VERSION,
+      startedAt: new Date().toISOString(),
+      seed: seedStr,
+      level: settings.level,
+      swapRule: settings.swapRule,
+      threatHighlight: !!settings.showThreat,
+      setup: Object.fromEntries(Object.entries(ui.setup).map(([c, t]) => [RF.cellName(+c), t])),
+      actions: [],
+      turnMs: [],
+      result: null,
+      rating: null,
+      comment: '',
+    };
+    ui.turnStart = ui.gameStart = Date.now();
     ui.phase = 'play';
     ui.selected = null;
     addLog('sys', 'Round 1');
@@ -129,15 +148,85 @@
     return res;
   }
 
+  // ------------------------------------------------------ playtest record
+
+  function describe(action) {
+    const out = { a: action.type };
+    if (action.cell != null) out.cell = RF.cellName(action.cell);
+    if (action.app) out.app = action.app;
+    if (action.edges) out.edges = action.edges.map((k) => RF.cellName(RF.EDGES[k].a) + '-' + RF.cellName(RF.EDGES[k].b));
+    if (action.type === 'swap') {
+      out.cells = [RF.cellName(action.a), RF.cellName(action.b)];
+      out.really = !!action.really;
+    }
+    return out;
+  }
+
+  function recordAction(who, action, events) {
+    if (!ui.record) return;
+    const entry = Object.assign({ r: ui.state.round, who, t: Date.now() - ui.gameStart }, describe(action));
+    const notable = events.filter((e) => ['outage', 'sensor', 'jewel', 'exfil', 'quarantine', 'discover'].includes(e.kind)).map((e) => e.kind);
+    if (notable.length) entry.ev = notable;
+    ui.record.actions.push(entry);
+  }
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem('ringfence.playtests') || '[]'); } catch (e) { return []; }
+  }
+  function saveRecord() {
+    if (!ui.record || !ui.record.result) return;
+    try {
+      const all = loadHistory().filter((r) => r.startedAt !== ui.record.startedAt);
+      all.push(ui.record);
+      localStorage.setItem('ringfence.playtests', JSON.stringify(all.slice(-100)));
+    } catch (e) { /* storage unavailable: the download buttons still work */ }
+    renderPlaytestCount();
+  }
+  function renderPlaytestCount() {
+    const n = loadHistory().length;
+    $('pt-count').textContent = n + ' game' + (n === 1 ? '' : 's') + ' saved in this browser';
+    $('btn-dl-all').textContent = 'Download all playtests (' + n + ')';
+  }
+  function download(name, data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+  const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+
+  // ------------------------------------------------------------ threat
+
+  // The Attacker's quickest route to one of the Defender's real jewels,
+  // judged from what the Attacker can know. { cell, actions, path } or null.
+  function computeThreat(s) {
+    if (!s || s.winner) return null;
+    const v = RF.attackerView(s);
+    const bel = AI.beliefs(v);
+    let best = null;
+    for (const c in s.tokens) {
+      if (s.tokens[c].type !== 'jewel') continue;
+      const r = AI.pathToExit(v, bel, +c);
+      if (r.cost >= 1e8) continue;
+      const actions = Math.ceil(r.cost - 1e-9) + 1; // the stones to place, plus Exfil
+      if (!best || actions < best.actions) best = { cell: +c, actions, path: r.path };
+    }
+    return best;
+  }
+
   function defenderDo(action) {
     if (ui.busy || ui.phase !== 'play' || ui.state.turn !== 'defender') return;
-    ui.undo.push({ state: RF.clone(ui.state), log: ui.log.length, stats: Object.assign({}, ui.stats) });
+    ui.undo.push({ state: RF.clone(ui.state), log: ui.log.length, stats: Object.assign({}, ui.stats), rec: ui.record ? ui.record.actions.length : 0 });
     const res = apply(action, 'D');
     if (!res) {
       ui.undo.pop();
       render();
       return;
     }
+    recordAction('D', action, res.events);
     const st = ui.stats;
     if (action.type in st) st[action.type]++;
     if (action.type === 'segment') st.walls += action.edges.length;
@@ -157,6 +246,7 @@
     if (!snap) return;
     ui.state = snap.state;
     ui.log.length = snap.log;
+    if (ui.record) ui.record.actions.length = snap.rec;
     ui.stats = snap.stats;
     ui.mode = null;
     ui.pending = [];
@@ -170,6 +260,7 @@
     ui.pending = [];
     ui.draft = null;
     ui.undo = [];
+    if (ui.record) ui.record.turnMs.push(Date.now() - ui.turnStart);
     apply({ type: 'endTurn' }, 'D');
     if (ui.state.winner) return finish();
     runAttacker();
@@ -187,6 +278,7 @@
       if (s.turn !== 'attacker') {
         ui.busy = false;
         ui.fresh = -1;
+        ui.turnStart = Date.now();
         render();
         return;
       }
@@ -200,6 +292,7 @@
         addLog('A', 'Attacker ends their turn early.');
       }
       const res = apply(action, 'A');
+      if (res) recordAction('A', action, res.events);
       ui.fresh = -1;
       if (res && action.cell != null) {
         ui.recent.add(action.cell);
@@ -242,6 +335,24 @@
     ];
     $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
       items.map(([a, b]) => '<li><b>' + esc(a) + '</b><span>' + esc(b) + '</span></li>').join('') + '</ul>';
+    if (ui.record) {
+      ui.record.result = {
+        winner: s.winner,
+        playerWon: s.winner === 'defender',
+        reason: s.reason,
+        rounds: Math.min(s.round, RF.CONFIG.roundLimit),
+        score: s.score,
+        jewelsTaken: s.jewelsTaken,
+        outages: s.outages,
+        swaps: s.swapsUsed,
+        durationMs: Date.now() - ui.gameStart,
+      };
+      saveRecord();
+    }
+    const mins = ui.record ? Math.max(1, Math.round(ui.record.result.durationMs / 60000)) : null;
+    $('fb-status').textContent = mins ? 'This game took about ' + mins + ' minute' + (mins > 1 ? 's' : '') + '.' : '';
+    $('fb-comment').value = '';
+    document.querySelectorAll('#rate [data-rate]').forEach((b) => b.classList.remove('sel'));
     show('overlay-end');
   }
 
@@ -511,6 +622,17 @@
       }
     }
 
+    // Threat highlight: the Attacker's quickest route to a real jewel.
+    const threat = settings.showThreat && s && ui.phase === 'play' && s.turn === 'defender' ? computeThreat(s) : null;
+    if (threat) {
+      const g = el('g', { class: 'threat ' + threatLevel(threat.actions), 'pointer-events': 'none' }, svg);
+      threat.path.forEach((c) => {
+        if (s.stones[c]) return;
+        el('rect', { class: 'threat-cell', x: cx(c) + 5, y: cy(c) + 5, width: CS - 10, height: CS - 10, rx: 8 }, g);
+      });
+      el('circle', { class: 'threat-target', cx: cx(threat.cell) + CS / 2, cy: cy(threat.cell) + CS / 2 + 2, r: 24 }, g);
+    }
+
     // Hit areas (cells, then edges on top in segment mode).
     const targets = targetCells();
     const hits = el('g', {}, svg);
@@ -563,6 +685,30 @@
         el('rect', attrs, hits);
       });
     }
+  }
+
+  const threatLevel = (n) => (n <= RF.CONFIG.actionsPerTurn ? 'danger' : n <= 2 * RF.CONFIG.actionsPerTurn ? 'warn' : 'calm');
+
+  function renderThreat() {
+    const box = $('threat');
+    const s = ui.state;
+    if (!settings.showThreat || !s || ui.phase !== 'play' || s.turn !== 'defender' || s.winner) {
+      box.hidden = true;
+      return;
+    }
+    const t = computeThreat(s);
+    box.hidden = false;
+    if (!t) {
+      box.className = 'threat-box calm';
+      box.innerHTML = '<b>Threat:</b> the Attacker has no route to your jewels right now.';
+      return;
+    }
+    const lvl = threatLevel(t.actions);
+    box.className = 'threat-box ' + lvl;
+    box.innerHTML = '<b>' + (lvl === 'danger' ? '⚠ ' : '') + 'Threat:</b> the Attacker is about <b>' + t.actions + ' action' + (t.actions === 1 ? '' : 's') +
+      '</b> from stealing the jewel on <b>' + RF.cellName(t.cell) + '</b>' +
+      (lvl === 'danger' ? ', so it could happen on its next turn.' : lvl === 'warn' ? ', within two of its turns.' : '.') +
+      ' <span class="muted small">The dashed route shows the way it would go, if it knew where the jewel is.</span>';
   }
 
   function drawFlow(e, cls, title, parent) {
@@ -678,6 +824,7 @@
       msg.className = 'setup-msg ' + (err ? 'bad' : 'ok');
       $('btn-start').disabled = !!err;
       $('meters').innerHTML = '';
+      renderThreat();
       renderLog();
       return;
     }
@@ -732,6 +879,7 @@
     end.disabled = !active;
     end.classList.toggle('pulse', active && s.actionsLeft === 0);
     renderHint(active);
+    renderThreat();
     renderLog();
   }
 
@@ -888,6 +1036,39 @@
     const level = $('set-level');
     const speed = $('set-speed');
     const reasoning = $('set-reasoning');
+    const threatBox = $('set-threat');
+    threatBox.checked = !!settings.showThreat;
+    threatBox.addEventListener('change', () => { settings.showThreat = threatBox.checked; saveSettings(); render(); });
+
+    $('rate').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-rate]');
+      if (!b || !ui.record) return;
+      ui.record.rating = +b.dataset.rate;
+      document.querySelectorAll('#rate [data-rate]').forEach((x) => x.classList.toggle('sel', x === b));
+      saveRecord();
+      toast('Thanks! Rating saved.');
+    });
+    $('fb-comment').addEventListener('change', () => {
+      if (!ui.record) return;
+      ui.record.comment = $('fb-comment').value.trim();
+      saveRecord();
+    });
+    $('btn-dl-game').addEventListener('click', () => {
+      if (!ui.record) return;
+      ui.record.comment = $('fb-comment').value.trim();
+      saveRecord();
+      download('ringfence-game-' + stamp() + '.json', ui.record);
+    });
+    const dlAll = () => download('ringfence-playtests-' + stamp() + '.json', loadHistory());
+    $('btn-dl-all').addEventListener('click', dlAll);
+    $('btn-pt-dl').addEventListener('click', dlAll);
+    $('btn-pt-clear').addEventListener('click', () => {
+      if (!confirm('Delete all saved playtest records in this browser?')) return;
+      try { localStorage.removeItem('ringfence.playtests'); } catch (e) { /* ignore */ }
+      renderPlaytestCount();
+    });
+    renderPlaytestCount();
+
     const swapRule = $('set-swap');
     swapRule.value = settings.swapRule;
     swapRule.addEventListener('change', () => { settings.swapRule = swapRule.value; saveSettings(); toast('Swap rule applies from your next game.'); });

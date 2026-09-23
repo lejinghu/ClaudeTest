@@ -628,6 +628,35 @@ The cap of 2 never came into play in these runs.
 With ±2.8 percentage points of noise at 300 games, only the eager rows
 differ clearly between the two rules.
 
+### Balanced and fun: targets and process
+
+The simulator can show whether the game is balanced. Only people can show
+whether it's fun. We track both against these targets.
+
+| Target | Goal | Where it's measured | Now (bots, v0.4) |
+|---|---|---|---|
+| Skill matters | A careful player beats a mindless one by 30+ points | `sim.js` vs `--mindless` | 50% vs 84% Attacker wins (34 points) ✓ |
+| No dominant strategy | No single plan wins more than 60% | new bot strategies in `sim.js` | ✓ for the strategies tried |
+| Easy | Player wins about 70% | playtest report | bot wins 52%: probably too hard |
+| Normal | Player wins 55–60% | playtest report | bot wins 58% ✓ |
+| Hard | Player wins 40–45% | playtest report | bot wins 50%: slightly soft |
+| Length | About 5 minutes, 4–6 rounds | playtest report | 4–5 rounds ✓; minutes still to measure |
+| Fun | Average rating ≥ 4/5, no action under 5% or over 40% of plays | playtest report | to measure |
+
+Fun comes from a real dilemma every turn, from tension (games decided late,
+with the threat visible), from losses the player understands, and from
+surprises the player could have seen coming. The **threat highlight** and the
+Security Intelligence warnings serve the last three.
+
+Process: change one thing at a time. Rerun the bot suite after every rules
+change. Then run human playtests with the in-game feedback and
+`playtest-report.js`, and record the before and after numbers here.
+
+Known "no-brainer" moves to fix next:
+- Hardening all three services on turn 1.
+- Assess as a plain "+2 Insight".
+- In 5-minute mode, there may be more actions than a booth visitor needs.
+
 ### Plan
 
 1. **Paper, internal, about 20 games.** Record the winner, the round, the
