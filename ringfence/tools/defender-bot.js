@@ -45,36 +45,30 @@ function candidateResponses(s, canFence) {
   const out = [];
   if (s.insight >= RF.CONFIG.hardenCost)
     RF.INFRA_CELLS.filter((c) => !s.hardened[c]).forEach((cell) => out.push({ type: 'harden', cell }));
-  if (s.insight >= RF.CONFIG.segmentCost && s.wallsLeft > 0) {
-    // Greedy pair: best single wall, then the best second wall given the first.
+  if (s.insight >= RF.segmentCost(1) && s.wallsLeft > 0) {
+    // Greedy: keep adding the wall that most delays the Attacker, while it
+    // still helps and the Insight and wall supply allow. One action.
     const edges = RF.wallableEdges(s);
-    let best1 = null;
-    let bestT = -1;
-    for (const k of edges) {
-      const c = tryAction(s, { type: 'segment', edges: [k] });
-      const t = c ? threat(c) : -1;
-      if (t > bestT) { bestT = t; best1 = k; }
-    }
-    if (best1) {
-      let best2 = null;
-      let bestT2 = bestT;
-      if (s.wallsLeft > 1) {
-        for (const k of edges) {
-          if (k === best1) continue;
-          const c = tryAction(s, { type: 'segment', edges: [best1, k] });
-          const t = c ? threat(c) : -1;
-          if (t > bestT2) { bestT2 = t; best2 = k; }
-        }
+    const chosen = [];
+    let current = -1;
+    while (chosen.length < s.wallsLeft && s.insight >= RF.segmentCost(chosen.length + 1)) {
+      let bestK = null;
+      let bestT = current;
+      for (const k of edges) {
+        if (chosen.includes(k)) continue;
+        const c = tryAction(s, { type: 'segment', edges: chosen.concat(k) });
+        const t = c ? threat(c) : -1;
+        if (t > bestT) { bestT = t; bestK = k; }
       }
-      out.push({ type: 'segment', edges: best2 ? [best1, best2] : [best1] });
+      if (!bestK) break;
+      chosen.push(bestK);
+      current = bestT;
     }
+    if (chosen.length) out.push({ type: 'segment', edges: chosen });
   }
   if (canFence) Object.keys(RF.APPS).forEach((app) => {
-    if (s.fenced[app]) return;
-    // Exceptions first, then lock down.
-    if (RF.recommendedExceptions(s, app).length) {
-      if (s.insight >= RF.CONFIG.allowCost) out.push({ type: 'allow', app });
-    } else if (s.insight >= RF.ringfenceCost(app)) out.push({ type: 'ringfence', app });
+    // Ring-fence publishes the recommendation for known flows by itself.
+    if (!s.fenced[app] && s.insight >= RF.ringfenceCost(app)) out.push({ type: 'ringfence', app });
   });
   if (s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0) {
     for (let c = 0; c < RF.N; c++) {
@@ -159,8 +153,7 @@ function chooseAction(s, opts) {
     .filter((a) => !s.fenced[a])
     .sort((a, b) => (jewelApps.has(b) - jewelApps.has(a)) || RF.ringfenceCost(a) - RF.ringfenceCost(b));
   const affordable = canFence ? fenceable.find((a) => s.insight >= RF.ringfenceCost(a)) : null;
-  const lockDown = (app) =>
-    RF.recommendedExceptions(s, app).length ? { type: 'allow', app } : { type: 'ringfence', app };
+  const lockDown = (app) => ({ type: 'ringfence', app });
   if (affordable && jewelApps.has(affordable)) return lockDown(affordable);
 
   if (affordable) return lockDown(affordable);

@@ -4,12 +4,22 @@ A playable browser prototype of the RINGFENCE design
 ([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md)). You
 play the **Defender** and an AI plays the **Attacker**.
 
-Since v0.2, business flows are hidden and drawn at random each game.
-Security Intelligence reveals them over time. Locking down an app follows
-the real workflow: observe traffic, publish exceptions (**4a Allow**), then
-ring-fence (**4b**). Blocking a flow you haven't allowed causes an outage.
+Business flows are hidden and drawn at random each game. Security
+Intelligence reveals them over time. Locking down an app follows the real
+workflow: observe traffic, then ring-fence, which publishes allow rules for
+the observed flows and blocks the rest. Blocking a flow you haven't allowed
+causes an outage.
 
-v0.3 removes the Dev/Prod environments and the Decoys. It adds a secret
+v0.4 is tuned for a **~5-minute game**: one stolen jewel wins for the
+Attacker, and the Defender needs Score 6 or survival to round 8. There are 15
+hidden flows, so fencing a jewel's app doesn't seal it. Segment and Allow each
+handle any number of walls or exceptions in one action. Ring-fence
+now publishes the Security Intelligence recommendation (allow rules for
+observed flows) automatically. Getting through a ring-fence over an allowed
+flow costs the Attacker 2 actions, because it has to exploit the allowed
+service.
+
+v0.3 removed the Dev/Prod environments and the Decoys. It adds a secret
 **⇄ Swap**: exchange two face-down tokens, or only pretend to. It costs
 3 Insight and is limited to 2 per game. The red % under each token shows the
 Attacker's current jewel odds for it.
@@ -80,9 +90,10 @@ as a single downloaded or attached file.
 
 ## Balance snapshot
 
-The swap cost comparison for v0.3 is in the design doc (Section 11). The v0.2
-numbers below show the observe → allow → ring-fence lesson. It still holds
-without environments: mindless lockdown loses 97% of games.
+The current (v0.4) balance, the swap cost comparison, and the crossing-rule
+comparison are in the design doc (Section 11). In v0.4, a careful Defender
+loses 42–50% of games and mindless lockdown loses 84–85%, in about 4–5 rounds.
+The v0.2 numbers below are kept for history.
 
 ### v0.2
 

@@ -93,7 +93,9 @@
       done[u] = true;
       for (const w of RF.attackerNeighbors(v, u, extra)) {
         if (done[w]) continue;
-        const d = dist[u] + nodeCost(w);
+        // Exploiting an allowed service costs extra actions to cross.
+        const nb = !v.stones[w] && RF.NEIGHBORS[u].find((n) => n.cell === w);
+        const d = dist[u] + nodeCost(w) + (nb ? RF.crossExtra(v, nb.key) : 0);
         if (d < dist[w]) {
           dist[w] = d;
           prev[w] = u;

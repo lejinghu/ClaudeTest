@@ -33,38 +33,45 @@
   const COLS = 'abcdefg';
 
   // Tunable numbers (design doc Section 11). Kept in one place on purpose.
+  // v0.4 values target a ~5-minute game: about 5 rounds, capped at 8.
   const CONFIG = {
     actionsPerTurn: 3,
     startInsight: 3,
     assessGain: 2,
     hardenCost: 1,
-    segmentCost: 1,
-    wallsPerSegment: 2,
+    segmentCost: 1, // Insight per wallsPerInsight walls, rounded up
+    wallsPerInsight: 2, // Segment places any number of walls in one action
     deployCost: 1,
-    scoreTarget: 10,
-    jewelsToWin: 2,
-    roundLimit: 12,
+    scoreTarget: 6,
+    jewelsToWin: 1,
+    roundLimit: 8,
     walls: 12,
     stones: 20,
     deploySensors: 3,
     setupJewels: 3,
     setupSensors: 3,
     scoreHarden: 1,
-    scoreRingfence: 3,
+    scoreRingfence: 1,
     scoreQuarantine: 1,
     // Secret swap of two face-down tokens (design doc Section 5.3).
     swapCost: 3, // Insight
     swapScorePenalty: 0, // Score lost per swap (the "migration downtime" rule)
     swapsPerGame: 2,
     // Hidden business flows (design doc Section 5.7).
-    flowsPerGame: 11,
+    flowsPerGame: 15,
     rareFlowShare: 0.3,
     flowSeenRound: 2, // everyday flows show up after one round of traffic
-    rareSeenRound: 4, // month-end flows show up once the look-back reaches them
-    rareFlowRound: 5, // ...and run again (breaking if blocked) from this round
+    rareSeenRound: 3, // month-end flows show up once the look-back reaches them
+    rareFlowRound: 4, // ...and run again (breaking if blocked) from this round
     outagePenalty: 2,
     allowCost: 0, // publishing the recommendation: one click, no Insight
     manualExceptionCost: 1, // extra, per exception the recommendation didn't include
+    // How an Attacker crosses an edge that is open only because of an allow
+    // rule (the allowed service between two apps):
+    //   0 = freely, like any open edge
+    //   1 = by exploiting the allowed service: +1 action (Spread costs 2)
+    //   9 = never: allow rules only admit legitimate traffic
+    allowedCrossing: 1,
   };
 
   const LAYOUT = [
@@ -304,9 +311,22 @@
 
   // Cells an attacker stone on i is connected to: open edges, plus the hub
   // rule (unhardened infrastructure cells all touch each other).
+  // An edge that would be blocked by a ring-fence if it weren't for an allow
+  // rule: the allowed service is the only way across.
+  function isAllowOnly(s, key) {
+    const e = EDGES[key];
+    return !!s.allows[key] && e.border && !!(s.fenced[REGION[e.a]] || s.fenced[REGION[e.b]]);
+  }
+
+  // Extra actions an attacker spends to cross edge `key` (see allowedCrossing).
+  const crossExtra = (s, key) => (CONFIG.allowedCrossing > 0 && CONFIG.allowedCrossing < 9 && isAllowOnly(s, key) ? CONFIG.allowedCrossing : 0);
+
+  const attackerCanCross = (s, key, extra) =>
+    isOpen(s, key, extra) && !(CONFIG.allowedCrossing >= 9 && isAllowOnly(s, key));
+
   function attackerNeighbors(s, i, extra) {
     const out = [];
-    for (const n of NEIGHBORS[i]) if (isOpen(s, n.key, extra)) out.push(n.cell);
+    for (const n of NEIGHBORS[i]) if (attackerCanCross(s, n.key, extra)) out.push(n.cell);
     if (isInfra(i) && !isHardened(s, i, extra)) {
       for (const k of INFRA_CELLS) if (k !== i && !isHardened(s, k, extra)) out.push(k);
     }
@@ -354,6 +374,17 @@
     return attackerNeighbors(s, i).some((j) => s.stones[j]);
   }
 
+  // Actions a Spread onto cell c costs: 1, or more if the only way in is by
+  // exploiting an allowed service.
+  function spreadCost(s, c) {
+    let best = Infinity;
+    for (const n of NEIGHBORS[c]) {
+      if (s.stones[n.cell] && attackerCanCross(s, n.key)) best = Math.min(best, 1 + crossExtra(s, n.key));
+    }
+    if (isInfra(c) && !s.hardened[c] && INFRA_CELLS.some((k) => k !== c && s.stones[k] && !s.hardened[k])) best = 1;
+    return best;
+  }
+
   // Why a wall cannot go on this edge, or null if it can.
   function wallError(s, key) {
     const e = EDGES[key];
@@ -381,6 +412,7 @@
   }
 
   const ringfenceCost = (app) => APP_CELLS[app].length;
+  const segmentCost = (walls) => CONFIG.segmentCost * Math.ceil(walls / CONFIG.wallsPerInsight);
 
   // The Attacker's chance that each face-down token is a Crown Jewel, from
   // public information only: Recon results, what was deployed mid-game, and
@@ -469,16 +501,16 @@
       }
       case 'segment': {
         const keys = Array.isArray(a.edges) ? a.edges : [];
-        if (keys.length < 1 || keys.length > CONFIG.wallsPerSegment)
-          return 'Segment places 1 or ' + CONFIG.wallsPerSegment + ' walls.';
+        if (keys.length < 1) return 'Pick at least one edge to wall.';
         if (new Set(keys).size !== keys.length) return 'Pick two different edges.';
-        if (s.insight < CONFIG.segmentCost) return 'Not enough Insight.';
+        const cost = segmentCost(keys.length);
+        if (s.insight < cost) return keys.length + ' wall' + (keys.length > 1 ? 's cost ' : ' costs ') + cost + ' Insight.';
         if (s.wallsLeft < keys.length) return 'Not enough walls left in your supply.';
         for (const k of keys) {
           const we = wallError(s, k);
           if (we) return we;
         }
-        s.insight -= CONFIG.segmentCost;
+        s.insight -= cost;
         keys.forEach((k) => {
           s.walls[k] = true;
           s.wallsLeft--;
@@ -528,6 +560,9 @@
         const cost = ringfenceCost(app);
         if (s.insight < cost) return 'Ring-fencing ' + app + ' costs ' + cost + ' Insight.';
         s.insight -= cost;
+        // The Security Intelligence recommendation is published with the
+        // lockdown: every observed flow on the border gets an allow rule.
+        recommendedExceptions(s, app).forEach((k) => (s.allows[k] = 'rec'));
         s.fenced[app] = true;
         s.score += CONFIG.scoreRingfence;
         const open = appBorderEdges(app).filter((k) => s.allows[k]).length;
@@ -666,11 +701,16 @@
         if (!canEnter(s, c)) return 'That cell cannot be entered.';
         if (!adjacentToStone(s, c)) return 'Spread needs an open edge from one of your stones.';
         if (s.stonesLeft <= 0) return 'No stones left.';
-        const viaFlow = NEIGHBORS[c].some((n) => s.stones[n.cell] && s.allows[n.key]);
+        const cost = spreadCost(s, c);
+        if (cost > s.actionsLeft)
+          return 'The only way in is by exploiting an allowed service, which takes ' + cost + ' actions.';
+        const viaFlow = NEIGHBORS[c].some((n) => s.stones[n.cell] && isAllowOnly(s, n.key));
         const viaHub = isInfra(c) && INFRA_CELLS.some((k) => k !== c && s.stones[k] && !s.hardened[k]);
         let how = '';
         if (viaHub && !NEIGHBORS[c].some((n) => s.stones[n.cell] && isOpen(s, n.key))) how = ' (hub hop)';
+        else if (cost > 1) how = ' by exploiting an allowed service (' + cost + ' actions)';
         else if (viaFlow) how = ' (through an allowed flow)';
+        s.actionsLeft -= cost - 1; // the usual decrement below covers the first action
         placeStone(s, c, ev, 'Spread to ' + cellName(c) + how + '.');
         break;
       }
@@ -694,7 +734,7 @@
         ev.push({ kind: 'exfil', cell: c, text: 'EXFILTRATED the Crown Jewel on ' + cellName(c) + '!' });
         if (s.jewelsTaken >= CONFIG.jewelsToWin) {
           s.winner = 'attacker';
-          s.reason = 'The Attacker exfiltrated ' + s.jewelsTaken + ' Crown Jewels.';
+          s.reason = 'The Attacker exfiltrated ' + (s.jewelsTaken === 1 ? 'a Crown Jewel' : s.jewelsTaken + ' Crown Jewels') + '.';
         }
         break;
       }
@@ -761,7 +801,7 @@
     for (let c = 0; c < N; c++) {
       if (hasStones && canEnter(s, c)) {
         if (!s.breachUsed && isBreachable(c)) out.push({ type: 'breach', cell: c });
-        if (adjacentToStone(s, c)) out.push({ type: 'spread', cell: c });
+        if (adjacentToStone(s, c) && spreadCost(s, c) <= s.actionsLeft) out.push({ type: 'spread', cell: c });
       }
       const t = s.tokens[c];
       if (t && !t.faceUp && !t.recon && adjacentToStone(s, c)) out.push({ type: 'recon', cell: c });
@@ -791,9 +831,9 @@
     APP_CELLS, INFRA_CELLS, APP_PAIRS,
     rowOf, colOf, cellName, cellIndex, isInfra, edgeKey, attackerJewelOdds, swapError,
     makeRng, shuffle, validateSetup, randomSetup, generateFlows, newGame, clone,
-    appBorderEdges, recommendedExceptions, isFlowActive, allowCost,
+    appBorderEdges, recommendedExceptions, isFlowActive, allowCost, isAllowOnly, crossExtra, spreadCost,
     isOpen, attackerNeighbors, canEnter, isExit, isBreachable, groupOf, allGroups,
-    groupHasExit, adjacentToStone, wallError, wallableEdges, ringfenceCost,
+    groupHasExit, adjacentToStone, wallError, wallableEdges, ringfenceCost, segmentCost,
     act, legalAttackerActions, attackerView,
   };
 });

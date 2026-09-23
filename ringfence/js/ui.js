@@ -96,7 +96,7 @@
     addLog('D', 'Your tokens are hidden. The Attacker can see where they are, but not what they are.');
     addLog('D', 'Security Intelligence is collecting traffic. Everyday business flows appear from round ' + RF.CONFIG.flowSeenRound +
       '. Month-end flows appear in round ' + RF.CONFIG.rareSeenRound + ' and first run in round ' + RF.CONFIG.rareFlowRound +
-      '. Ring-fencing an app blocks every flow you haven’t allowed.');
+      '. Ring-fencing an app allows the flows you’ve observed and blocks everything else.');
     render();
   }
 
@@ -226,8 +226,9 @@
     const items = [
       ['Assessed ' + st.assess + '×', 'Stage 1: Security Segmentation Assessment & Report. You can’t segment what you can’t see.'],
       ['Hardened ' + hardened + ' of 3 infrastructure services', 'Stage 2: Infrastructure Services segmentation for DNS, NTP and LDAP. It closes common C2 and exfiltration paths.'],
-      ['Published exceptions for ' + st.allow + ' app' + (st.allow === 1 ? '' : 's') + ', then ring-fenced ' + fenced.length + (fenced.length ? ' (' + fenced.join(', ') + ')' : ''),
-        'Stage 4: Application microsegmentation. Security Intelligence recommends allow rules for the flows it observed; publish them, then lock down everything else.'],
+      ['Ring-fenced ' + fenced.length + ' app' + (fenced.length === 1 ? '' : 's') + (fenced.length ? ' (' + fenced.join(', ') + ')' : '') +
+        (st.allow ? ', and added exceptions ' + st.allow + '×' : ''),
+        'Stage 4: Application microsegmentation. Security Intelligence recommends allow rules for the flows it observed; the lockdown publishes them and blocks everything else.'],
       [st.outages ? 'Caused ' + st.outages + ' outage' + (st.outages > 1 ? 's' : '') + ' (−' + st.outages * RF.CONFIG.outagePenalty + ' score)' : 'Caused no outages',
         'Locking down before you’ve seen an app’s traffic breaks production. Recommendations built on enough flow history avoid it.'],
       (() => {
@@ -313,9 +314,8 @@
     }
     const err = RF.wallError(ui.state, key);
     if (err) return toast(err);
+    if (ui.pending.length >= ui.state.wallsLeft) return toast('No walls left in your supply.');
     ui.pending.push(key);
-    const max = Math.min(RF.CONFIG.wallsPerSegment, ui.state.wallsLeft);
-    if (ui.pending.length >= max) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
     render();
   }
 
@@ -472,9 +472,9 @@
       if (ui.draft && ui.mode === 'ringfence') {
         // Preview: what the lockdown will block.
         for (const key of RF.appBorderEdges(ui.draft.app)) {
-          if (s.allows[key] || s.walls[key] || !RF.isOpen(s, key)) continue;
+          if (s.allows[key] || s.walls[key] || !RF.isOpen(s, key) || s.discovered[key]) continue;
           const [x1, y1, x2, y2] = edgeLine(RF.EDGES[key], 5);
-          el('line', { class: 'fence preview' + (s.discovered[key] ? ' breaks' : ''), x1, y1, x2, y2 }, flows);
+          el('line', { class: 'fence preview', x1, y1, x2, y2 }, flows);
         }
       }
       const keys = new Set([...Object.keys(s.discovered), ...Object.keys(s.allows)]);
@@ -482,7 +482,8 @@
       if (ui.draft && ui.mode === 'allow') ui.draft.edges.forEach((k) => keys.add(k));
       for (const key of keys) {
         const allow = s.allows[key];
-        const drafted = ui.draft && ui.mode === 'allow' && ui.draft.edges.has(key) && !allow;
+        const drafted = !allow && ui.draft && ((ui.mode === 'allow' && ui.draft.edges.has(key)) ||
+          (ui.mode === 'ringfence' && RF.recommendedExceptions(s, ui.draft.app).includes(key)));
         let cls;
         let title;
         if (allow === 'emergency') { cls = 'allow emergency'; title = 'Emergency allow rule, added after an outage'; }
@@ -750,12 +751,16 @@
     } else if (ui.mode === 'harden') {
       html = 'Tap <b>NTP</b>, <b>DNS</b> or <b>LDAP</b> to harden it.' + cancelBtn();
     } else if (ui.mode === 'segment') {
-      html = 'Tap up to ' + Math.min(2, s.wallsLeft) + ' highlighted edges to wall them. Observed flows can’t be walled. Walling a flow you haven’t observed yet causes an outage.' +
-        '<div class="row">' + (ui.pending.length ? '<button class="btn primary" data-hint="commit" type="button">Place 1 wall</button>' : '') +
+      const n = ui.pending.length;
+      const cost = RF.segmentCost(n);
+      html = 'Tap any number of highlighted edges, then place them all in one action (' + RF.CONFIG.segmentCost + ' Insight per ' + RF.CONFIG.wallsPerInsight +
+        ' walls; ' + s.wallsLeft + ' left in your supply). Observed flows can’t be walled. Walling a flow you haven’t observed yet causes an outage.' +
+        '<div class="row">' + (n ? '<button class="btn primary" data-hint="commit" type="button"' + (s.insight >= cost ? '' : ' disabled') + '>Place ' + n + ' wall' +
+        (n > 1 ? 's' : '') + ' (' + cost + ' Insight)</button>' : '') +
         '<button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
     } else if (ui.mode === 'allow' && !ui.draft) {
-      html = '<b>4a Allow.</b> Tap an app to open its Security Intelligence recommendation: allow rules for every flow observed on its border. Publishing it costs ' +
-        RF.CONFIG.allowCost + ' Insight. You can also tap other border edges to add manual exceptions (+' + RF.CONFIG.manualExceptionCost + ' each).' + cancelBtn();
+      html = '<b>Allow.</b> Ring-fencing already allows observed flows. Use this to add exceptions later: flows Security Intelligence found after you locked an app down, or manual guesses (+' +
+        RF.CONFIG.manualExceptionCost + ' Insight each). Tap an app to open its recommendation.' + cancelBtn();
     } else if (ui.mode === 'allow') {
       const d = ui.draft;
       const edges = [...d.edges].filter((k) => !s.allows[k]);
@@ -773,17 +778,18 @@
       const border = RF.appBorderEdges(app);
       const open = border.filter((k) => s.allows[k]).length;
       const blocked = border.filter((k) => !s.allows[k] && !s.walls[k] && RF.isOpen(s, k)).length;
-      const breaks = border.filter((k) => s.discovered[k] && !s.allows[k]).length;
+      const rec = RF.recommendedExceptions(s, app).length;
       const cost = RF.ringfenceCost(app);
       const early = s.round < RF.CONFIG.flowSeenRound;
-      html = '<b>Lock down app ' + app + ' (' + esc(RF.APPS[app].name) + ')</b><br>' + open + ' exception' + (open === 1 ? ' stays' : 's stay') +
-        ' open. ' + blocked + ' edge' + (blocked === 1 ? '' : 's') + ' will be blocked.' +
-        (breaks ? '<br><b class="bad">⚠ ' + breaks + ' observed flow' + (breaks > 1 ? 's are' : ' is') + ' not allowed. ' + (breaks > 1 ? 'They' : 'It') + ' will break: −' + RF.CONFIG.outagePenalty + ' score each. Use 4a Allow first.</b>' : '') +
-        (early ? '<br><span class="bad">⚠ There’s no traffic history yet, so any business flow here will break.</span>' : '') +
+      const noRare = s.round < RF.CONFIG.rareSeenRound;
+      html = '<b>Lock down app ' + app + ' (' + esc(RF.APPS[app].name) + ')</b><br>Security Intelligence will allow <b>' + rec + '</b> observed flow' + (rec === 1 ? '' : 's') +
+        (open ? ' (' + open + ' exception' + (open === 1 ? '' : 's') + ' already open)' : '') + '. ' + (blocked - rec) + ' other edge' + (blocked - rec === 1 ? '' : 's') + ' will be blocked.' +
+        (early ? '<br><span class="bad">⚠ No traffic history yet: any business flow here will break (−' + RF.CONFIG.outagePenalty + ' score each).</span>'
+          : noRare ? '<br><span class="muted small">Month-end flows aren’t visible until round ' + RF.CONFIG.rareSeenRound + '. If one crosses this border it will break when it first runs.</span>' : '') +
         '<div class="row"><button class="btn primary" data-hint="fence" type="button"' + (s.insight >= cost ? '' : ' disabled') + '>Lock down (' + cost +
         ' Insight)</button><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
     } else if (ui.mode === 'ringfence') {
-      html = '<b>4b Ring-fence.</b> Tap an app to preview the lockdown. Cost = its size. Only exceptions stay open. Affordable now: ' +
+      html = '<b>4 Ring-fence.</b> Tap an app to preview the lockdown. Observed flows are allowed automatically, everything else is blocked. Cost = its size. Affordable now: ' +
         (Object.keys(RF.APPS).filter((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a))
           .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
     } else if (ui.mode === 'deploy') {
