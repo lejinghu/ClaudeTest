@@ -36,6 +36,7 @@
   // v0.4 values target a ~5-minute game: about 5 rounds, capped at 8.
   const CONFIG = {
     actionsPerTurn: 3,
+    attackerActions: 3, // the Attacker's actions per turn (a difficulty lever)
     startInsight: 3,
     assessGain: 2,
     hardenCost: 1,
@@ -72,6 +73,9 @@
     //   1 = by exploiting the allowed service: +1 action (Spread costs 2)
     //   9 = never: allow rules only admit legitimate traffic
     allowedCrossing: 1,
+    // Isolate: an emergency block on any edge, even a known business flow.
+    // Breaking a running flow this way is an outage that stays broken.
+    isolateCost: 2,
   };
 
   const LAYOUT = [
@@ -204,17 +208,25 @@
     return null;
   }
 
-  // Random setup: jewels go in apps without an exit cell (a jewel on an exit
-  // can be stolen in two actions); sensors go anywhere else.
+  // A jewel on, or next to, a cell the Attacker can breach can be reached on
+  // its very first turn.
+  const isExposed = (c) => isBreachable(c) || NEIGHBORS[c].some((n) => isBreachable(n.cell));
+  function exposedJewels(setup) {
+    return Object.keys(setup).map(Number).filter((c) => setup[c] === 'jewel' && isExposed(c));
+  }
+
+  // Random setup: jewels go on cells away from every breach point, in apps
+  // without an exit cell; sensors go anywhere else.
   function randomSetup(rng) {
     const setup = {};
     const hasExit = (app) => APPS[app].internetFacing || APP_CELLS[app].some((c) => rowOf(c) === 0);
-    const safe = shuffle(Object.keys(APPS).filter((a) => !hasExit(a)), rng);
+    const safeCells = (app) => APP_CELLS[app].filter((c) => !isExposed(c));
+    const safe = shuffle(Object.keys(APPS).filter((a) => !hasExit(a) && safeCells(a).length), rng);
     const jewelApps = safe.slice(0, CONFIG.setupJewels);
     const rest = shuffle(Object.keys(APPS).filter((a) => !jewelApps.includes(a)), rng).slice(0, CONFIG.setupSensors);
-    const pick = (app) => APP_CELLS[app][Math.floor(rng() * APP_CELLS[app].length)];
-    jewelApps.forEach((a) => (setup[pick(a)] = 'jewel'));
-    rest.forEach((a) => (setup[pick(a)] = 'sensor'));
+    const pickFrom = (cells) => cells[Math.floor(rng() * cells.length)];
+    jewelApps.forEach((a) => (setup[pickFrom(safeCells(a))] = 'jewel'));
+    rest.forEach((a) => (setup[pickFrom(APP_CELLS[a])] = 'sensor'));
     return setup;
   }
 
@@ -285,6 +297,7 @@
       discovered: {}, // flows Security Intelligence has shown the Defender
       allows: {}, // exception rules: key -> 'rec' | 'manual' | 'emergency'
       outages: 0,
+      broken: {}, // flows deliberately broken by Isolate (outage already charged)
     };
   }
 
@@ -523,6 +536,19 @@
         });
         break;
       }
+      case 'isolate': {
+        const key = a.edge;
+        const e = EDGES[key];
+        if (!e) return 'Pick an edge to isolate.';
+        if (s.walls[key]) return 'That edge is already walled.';
+        if (s.wallsLeft < 1) return 'No walls left in your supply.';
+        if (s.insight < CONFIG.isolateCost) return 'Isolating costs ' + CONFIG.isolateCost + ' Insight.';
+        s.insight -= CONFIG.isolateCost;
+        s.walls[key] = 'iso';
+        s.wallsLeft--;
+        ev.push({ kind: 'isolate', edges: [key], text: 'ISOLATE: emergency block on ' + cellName(e.a) + '–' + cellName(e.b) + '.' });
+        break;
+      }
       case 'allow': {
         const app = a.app;
         if (!APPS[app]) return 'Pick an application.';
@@ -627,6 +653,20 @@
     for (const key in s.flows) {
       if (!isFlowActive(s, key) || isOpen(s, key)) continue;
       const e = EDGES[key];
+      if (s.walls[key] === 'iso') {
+        // Deliberately isolated: the flow stays broken, charged once.
+        if (s.broken[key]) continue;
+        s.broken[key] = true;
+        s.discovered[key] = true;
+        s.score -= CONFIG.outagePenalty;
+        s.outages++;
+        ev.push({
+          kind: 'outage', edge: key,
+          text: 'OUTAGE (isolation): ' + APPS[REGION[e.a]].name + ' ↔ ' + APPS[REGION[e.b]].name + ' (' + cellName(e.a) + '–' + cellName(e.b) +
+            ') is cut on purpose. It stays blocked (−' + CONFIG.outagePenalty + ' score).',
+        });
+        continue;
+      }
       if (s.walls[key]) {
         delete s.walls[key];
         s.wallsLeft++;
@@ -727,6 +767,7 @@
         const t = s.tokens[c];
         if (!s.stones[c] || !t || t.type !== 'jewel' || !t.faceUp)
           return 'Exfil needs your stone on a revealed Crown Jewel.';
+        if (t.revealedRound === s.round) return 'Staging the data takes time: exfiltrate this jewel next turn.';
         if (!groupHasExit(s, groupOf(s, c)))
           return 'That stone’s group has no route to an exit.';
         delete s.tokens[c];
@@ -753,7 +794,8 @@
     if (!t || t.faceUp) return;
     if (t.type === 'jewel') {
       t.faceUp = true;
-      ev.push({ kind: 'jewel', cell: c, text: 'Crown Jewel found on ' + cellName(c) + '.' });
+      t.revealedRound = s.round; // staging the data takes until next turn
+      ev.push({ kind: 'jewel', cell: c, text: 'Crown Jewel found on ' + cellName(c) + '. The Attacker can exfiltrate it from its next turn.' });
     } else if (t.type === 'sensor') {
       s.stones[c] = 0;
       s.stonesLeft++;
@@ -784,7 +826,7 @@
       }
       s.turn = 'defender';
     }
-    s.actionsLeft = CONFIG.actionsPerTurn;
+    s.actionsLeft = s.turn === 'attacker' ? CONFIG.attackerActions : CONFIG.actionsPerTurn;
     ev.push({ kind: 'turn', text: (s.turn === 'defender' ? 'Round ' + s.round + ': Defender' : 'Attacker') + ' to act.' });
     if (s.turn === 'defender') {
       discoverFlows(s, ev);
@@ -805,7 +847,7 @@
       }
       const t = s.tokens[c];
       if (t && !t.faceUp && !t.recon && adjacentToStone(s, c)) out.push({ type: 'recon', cell: c });
-      if (s.stones[c] && t && t.faceUp && t.type === 'jewel' && groupHasExit(s, groupOf(s, c)))
+      if (s.stones[c] && t && t.faceUp && t.type === 'jewel' && t.revealedRound !== s.round && groupHasExit(s, groupOf(s, c)))
         out.push({ type: 'exfil', cell: c });
     }
     out.push({ type: 'endTurn' });
@@ -830,7 +872,7 @@
     SIZE, N, CONFIG, LAYOUT, APPS, INFRA, REGION, EDGES, NEIGHBORS,
     APP_CELLS, INFRA_CELLS, APP_PAIRS,
     rowOf, colOf, cellName, cellIndex, isInfra, edgeKey, attackerJewelOdds, swapError,
-    makeRng, shuffle, validateSetup, randomSetup, generateFlows, newGame, clone,
+    makeRng, shuffle, validateSetup, randomSetup, generateFlows, newGame, clone, exposedJewels,
     appBorderEdges, recommendedExceptions, isFlowActive, allowCost, isAllowOnly, crossExtra, spreadCost,
     isOpen, attackerNeighbors, canEnter, isExit, isBreachable, groupOf, allGroups,
     groupHasExit, adjacentToStone, wallError, wallableEdges, ringfenceCost, segmentCost,

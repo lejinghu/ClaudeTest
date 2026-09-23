@@ -22,6 +22,8 @@ const args = process.argv.slice(2);
 const games = parseInt(args.find((a) => /^\d+$/.test(a)) || '100', 10);
 const level = args.find((a) => a === 'easy' || a === 'normal' || a === 'hard') || 'normal';
 const fuzz = args.includes('--fuzz');
+// Each AI level brings its own action count, unless attackerActions= is given.
+RF.CONFIG.attackerActions = AI.LEVELS[level].actions;
 // Try balance changes without editing rules.js, e.g. allowCost=0 scoreTarget=9
 args.filter((a) => /^\w+=[\d.]+$/.test(a)).forEach((a) => {
   const [k, v] = a.split('=');
@@ -83,6 +85,8 @@ function randomDefender(s, rng) {
     opts.push({ type: 'allow', app, edges: border.filter(() => rng() < 0.3) });
   });
   opts.push({ type: 'deploy', cell: Math.floor(rng() * RF.N) });
+  const allEdges = Object.keys(RF.EDGES);
+  opts.push({ type: 'isolate', edge: allEdges[Math.floor(rng() * allEdges.length)] });
   const tok = Object.keys(s.tokens).map(Number);
   if (tok.length > 1) opts.push({ type: 'swap', a: tok[Math.floor(rng() * tok.length)], b: tok[Math.floor(rng() * tok.length)], really: rng() < 0.5 });
   const legal = opts.filter((a) => RF.act(RF.clone(s), a).ok);

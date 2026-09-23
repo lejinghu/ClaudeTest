@@ -19,6 +19,15 @@ observed flows) automatically. Getting through a ring-fence over an allowed
 flow costs the Attacker 2 actions, because it has to exploit the allowed
 service.
 
+v0.5 guarantees a way to respond:
+- Jewels start away from breach points.
+- ⛔ **Isolate** can block any edge in an emergency, at the cost of an
+  outage.
+- A jewel can't be stolen on the turn it's found.
+- The threat panel suggests responses you can tap.
+- Difficulty sets the Attacker's actions per turn: Easy 3, Normal 4, Hard 4
+  with look-ahead.
+
 v0.3 removed the Dev/Prod environments and the Decoys. It adds a secret
 **⇄ Swap**: exchange two face-down tokens, or only pretend to. It costs
 3 Insight and is limited to 2 per game. The red % under each token shows the
@@ -49,7 +58,7 @@ as a single downloaded or attached file.
 
 ### Keyboard shortcuts
 
-`1`–`7` choose an action, `Esc` cancels, `U` undoes, `E` ends your turn.
+`1`–`8` choose an action, `Esc` cancels, `U` undoes, `E` ends your turn.
 
 ## Playtesting
 
@@ -118,8 +127,9 @@ targets to compare against.
 ## Balance snapshot
 
 The current (v0.4) balance, the swap cost comparison, and the crossing-rule
-comparison are in the design doc (Section 11). In v0.4, a careful Defender
-loses 42–50% of games and mindless lockdown loses 84–85%, in about 4–5 rounds.
+comparison are in the design doc (Section 11). In v0.5 a careful bot player
+wins 85% / 67% / 37% on Easy / Normal / Hard, and a mindless one 32% / 20% /
+10%, in about 5 rounds.
 The v0.2 numbers below are kept for history.
 
 ### v0.2

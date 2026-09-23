@@ -3,8 +3,30 @@
 *A two-player asymmetric strategy game about lateral movement and Zero Trust.
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
-Status: design draft v0.4. Rules are complete and playable on paper. Numbers
+Status: design draft v0.5. Rules are complete and playable on paper. Numbers
 are starting values for playtesting (Section 11).
+
+**What changed in v0.5 (always a way to respond).** In a playtest, the
+player lost in a position where no legal move could stop the Attacker. The
+jewel sat next to the internet-facing storefront, the Attacker was on both
+sides of an observed business flow, and flows couldn't be walled. Fixes:
+- **Safer setup.** The random setup never puts a jewel next to a breach
+  point; before v0.5 that happened in 40% of setups. The setup screen warns
+  when a player does it by hand.
+- **ISOLATE (emergency quarantine).** For 2 Insight, block *any* edge, even
+  a known business flow or an allowed exception. Breaking a running flow is
+  an outage (−2 Score) that stays broken. You trade business impact for
+  safety, as incident response does in practice.
+- **Exfiltration takes a turn.** A jewel revealed this turn can only be
+  stolen on the Attacker's next turn, because staging the data takes time.
+  The Defender always gets one turn to respond.
+- **Threat panel with suggested responses.** It says whether the Attacker
+  can steal a jewel next turn, and offers the best responses with their
+  cost (for example "Segment: wall g6–g7" or "Isolate g6–g7, −2 score").
+  Tap one to do it.
+- **Difficulty levels change the Attacker's actions per turn.** Easy: 3
+  actions, with a random-ish AI. Normal: 4 actions. Hard: 4 actions, with
+  two-step look-ahead.
 
 **What changed in v0.4 (5-minute game).**
 - **Shorter game.** One stolen Crown Jewel wins for the Attacker. The
@@ -221,7 +243,9 @@ different every game, and nobody sees them at the start. See Section 5.7.
 ### 5.2 Turn structure
 
 Each **round**, the Defender takes a turn and then the Attacker takes a turn.
-On a turn you take **3 actions**, in any order. You can repeat an action.
+The Defender takes **3 actions** per turn. The Attacker takes 3 at Easy
+difficulty and 4 at Normal and Hard. Actions can be taken in any order and
+repeated.
 
 ### 5.3 Defender actions
 
@@ -231,6 +255,7 @@ On a turn you take **3 actions**, in any order. You can repeat an action.
 | **2** | **HARDEN** | 1 Insight | Cap one infrastructure cell and remove any attacker stone on it. From then on, the Attacker can't enter that cell, it isn't an exit, and it's no longer part of the hub. **+1 Score.** |
 | **3** | **SEGMENT** | 1 Insight per 2 walls (rounded up) | Place **any number of walls** on border edges in one action, from a supply of 12. Walls can split an attacker group. Observed flows can't be walled. Walling a flow you haven't observed yet causes an outage. |
 | **4** | **RING-FENCE** | Insight equal to the app's size (3–5) | Put a ring on the app. The Security Intelligence recommendation is published with it: every *observed* flow on the border gets an allow rule. Every other border edge is blocked. **+1 Score.** |
+| ⛔ | **ISOLATE** | 2 Insight | Emergency block on **any** edge, including known business flows and allowed exceptions (uses a wall from supply). If a business flow runs there, it's an outage (−2 Score) that stays broken, charged once. |
 | **+** | **ALLOW** | Free, +1 Insight per manual exception | Add exceptions later: allow rules for flows observed after the lockdown, plus **manual exceptions** on other border edges for 1 Insight each. |
 | ★ | **DEPLOY** | 1 Insight | Place a Sensor from your pool face-down on any empty cell that has no token. This is the SSP / IDS/IPS action. The Attacker sees it placed, so it knows it's a Sensor until a swap blurs it. |
 | ⇄ | **SWAP** | 3 Insight, max 2 per game *(playtest alternative: −1 Score each)* | Behind the screen, pick up two face-down tokens and put them back either swapped or not. Only you know which. Neither token may be next to an attacker stone. Once per turn. The Attacker's knowledge of both tokens resets: its jewel odds for each become the average of the two. |
@@ -247,7 +272,7 @@ Additional Defender rules:
 | **BREACH** | *Once per turn.* Place a stone on any empty cell in row 1 or in H*. |
 | **SPREAD** | Place a stone on an empty cell that is adjacent, through an open edge, to one of your stones. This includes moves between unhardened infrastructure cells under the hub rule. If the only way in is across a ring-fence over an **allowed flow**, the Attacker is exploiting that service, and the Spread costs **2 actions**. |
 | **RECON** | Secretly look at one face-down token on a cell adjacent, through an open edge, to one of your stones. |
-| **EXFIL** | If one of your stones sits on a revealed Crown Jewel **and** is in the same group as a stone on an exit, take the Jewel. |
+| **EXFIL** | If one of your stones sits on a revealed Crown Jewel **and** is in the same group as a stone on an exit, take the Jewel. **Not on the turn the jewel was revealed:** staging the data takes a turn. |
 
 Stones never move. You may place a stone next to your group even when a wall
 separates them. They just won't be connected.
@@ -571,6 +596,27 @@ data, publishes exceptions, then ring-fences, and responds to threats.
 Under v0.1 rules the same careful bot faced a 30–38% attacker win rate. The
 v0.2 values in the table above were tuned (ALLOW free, ring-fence +3) to put
 a careful Defender near 50%.
+
+### v0.5 balance (current)
+
+These are 300 games per row, with score target 6, one jewel to win, the
+exfiltration delay, and ISOLATE available. The numbers are the bot player's
+(Defender's) win rate.
+
+| Level | Careful | Hasty (locks down early) | Mindless | Median round |
+|---|---|---|---|---|
+| Easy: random-ish AI, 3 actions | 85% | – | 32% | 6 |
+| Normal: AI, 4 actions | 67% | 67% | 20% | 5 |
+| Hard: look-ahead AI, 4 actions | 37% | 37% | 10% | 5 |
+
+- The careful bot finds the best response every time, so real players should
+  land lower, near the targets of 70% / 55–60% / 40–45%.
+- A scripted player that simply follows the threat panel's suggestions won 2
+  of 4 browser games on Normal.
+- The skill gap between careful and mindless play is 47–53 points.
+- Open issue: hasty and careful now score the same, so "observe before you
+  lock down" has weakened. The exfiltration delay and ISOLATE let a hasty
+  Defender recover. A candidate fix is making outages more expensive (−3).
 
 ### v0.4 balance (5-minute settings)
 

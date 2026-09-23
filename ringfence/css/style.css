@@ -284,3 +284,11 @@ code { font-size: 0.9em; }
 .feedback textarea { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 8px 10px; font: inherit; resize: vertical; }
 .playtest { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .playtest span { flex: 1 1 100%; }
+
+/* Isolate walls and threat suggestions */
+.wall.iso { fill: var(--stone); }
+.wall.iso.pending { fill: none; stroke: var(--stone); stroke-width: 2; stroke-dasharray: 4 3; }
+.setup-msg.warn { color: var(--zone); }
+.suggest { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.suggest .btn { min-height: 38px; text-align: left; font-weight: 600; font-size: 13px; background: var(--surface); }
+.suggest .btn em { font-style: normal; color: var(--muted); font-weight: 500; }

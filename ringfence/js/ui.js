@@ -22,7 +22,7 @@
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const VERSION = 'v0.4';
+  const VERSION = 'v0.5';
   const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
@@ -69,7 +69,7 @@
   };
 
   function newStats() {
-    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
+    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, isolate: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
   }
 
   function newGame() {
@@ -93,6 +93,7 @@
     const err = RF.validateSetup(ui.setup);
     if (err) return toast(err);
     applySwapRule();
+    RF.CONFIG.attackerActions = (AI.LEVELS[settings.level] || AI.LEVELS.normal).actions;
     ui.state = RF.newGame(ui.setup, { rng });
     ui.record = {
       version: VERSION,
@@ -199,23 +200,6 @@
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 
   // ------------------------------------------------------------ threat
-
-  // The Attacker's quickest route to one of the Defender's real jewels,
-  // judged from what the Attacker can know. { cell, actions, path } or null.
-  function computeThreat(s) {
-    if (!s || s.winner) return null;
-    const v = RF.attackerView(s);
-    const bel = AI.beliefs(v);
-    let best = null;
-    for (const c in s.tokens) {
-      if (s.tokens[c].type !== 'jewel') continue;
-      const r = AI.pathToExit(v, bel, +c);
-      if (r.cost >= 1e8) continue;
-      const actions = Math.ceil(r.cost - 1e-9) + 1; // the stones to place, plus Exfil
-      if (!best || actions < best.actions) best = { cell: +c, actions, path: r.path };
-    }
-    return best;
-  }
 
   function defenderDo(action) {
     if (ui.busy || ui.phase !== 'play' || ui.state.turn !== 'defender') return;
@@ -331,6 +315,7 @@
           'Firewall Rule Analysis flags overly permissive rules like these. Every unneeded allow is a path an attacker can use.'];
       })(),
       ['Swapped tokens ' + st.swap + '×', 'Deception: a secret swap turns everything the Attacker scouted back into a guess, at a price.'],
+      ['Isolated ' + st.isolate + ' edge' + (st.isolate === 1 ? '' : 's') + ' in an emergency', 'Incident response: vDefend can quarantine compromised workloads, even when that breaks a business flow.'],
       ['Sensors caught the Attacker ' + st.sensorHits + '×', 'SSP threat prevention: distributed IDS/IPS inspects the traffic the firewall allows.'],
     ];
     $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
@@ -370,6 +355,10 @@
       return;
     }
     if (ui.mode === 'segment' && edgeEl) return segmentClick(edgeEl.dataset.edge);
+    if (ui.mode === 'isolate' && edgeEl) {
+      ui.draft = { edge: edgeEl.dataset.edge };
+      return render();
+    }
     if (ui.mode === 'allow' && edgeEl && ui.draft) {
       const k = edgeEl.dataset.edge;
       if (ui.draft.edges.has(k)) ui.draft.edges.delete(k);
@@ -573,7 +562,8 @@
           el('line', { class: 'fence', x1, y1, x2, y2 }, walls);
         }
       }
-      for (const key in s.walls) wallRect(RF.EDGES[key], 'wall', walls);
+      for (const key in s.walls) wallRect(RF.EDGES[key], s.walls[key] === 'iso' ? 'wall iso' : 'wall', walls);
+      if (ui.mode === 'isolate' && ui.draft && ui.draft.edge) wallRect(RF.EDGES[ui.draft.edge], 'wall iso pending', walls);
       ui.pending.forEach((key) => wallRect(RF.EDGES[key], 'wall pending', walls));
     }
 
@@ -623,9 +613,9 @@
     }
 
     // Threat highlight: the Attacker's quickest route to a real jewel.
-    const threat = settings.showThreat && s && ui.phase === 'play' && s.turn === 'defender' ? computeThreat(s) : null;
+    const threat = settings.showThreat && s && ui.phase === 'play' && s.turn === 'defender' ? AI.defenderThreat(s) : null;
     if (threat) {
-      const g = el('g', { class: 'threat ' + threatLevel(threat.actions), 'pointer-events': 'none' }, svg);
+      const g = el('g', { class: 'threat ' + threatLevel(threat), 'pointer-events': 'none' }, svg);
       threat.path.forEach((c) => {
         if (s.stones[c]) return;
         el('rect', { class: 'threat-cell', x: cx(c) + 5, y: cy(c) + 5, width: CS - 10, height: CS - 10, rx: 8 }, g);
@@ -649,6 +639,20 @@
         if (s.allows[key] || s.walls[key]) continue;
         const e = RF.EDGES[key];
         if (!ui.draft.edges.has(key)) wallRect(e, 'edge-hint', hits, 3);
+        const X = cx(e.b);
+        const Y = cy(e.b);
+        const attrs = e.orient === 'v'
+          ? { x: X - 12, y: Y + 8, width: 24, height: CS - 16 }
+          : { x: X + 8, y: Y - 12, width: CS - 16, height: 24 };
+        attrs.class = 'edge-hit';
+        attrs['data-edge'] = key;
+        el('rect', attrs, hits);
+      }
+    }
+    if (ui.mode === 'isolate' && s && !ui.busy) {
+      for (const key in RF.EDGES) {
+        if (s.walls[key]) continue;
+        const e = RF.EDGES[key];
         const X = cx(e.b);
         const Y = cy(e.b);
         const attrs = e.orient === 'v'
@@ -687,7 +691,9 @@
     }
   }
 
-  const threatLevel = (n) => (n <= RF.CONFIG.actionsPerTurn ? 'danger' : n <= 2 * RF.CONFIG.actionsPerTurn ? 'warn' : 'calm');
+  // danger: it can steal a jewel on its next turn. warn: it can reach one next
+  // turn, or steal one within two turns. calm: further away.
+  const threatLevel = (t) => (t.nextTurn ? 'danger' : t.rank <= 2 * RF.CONFIG.attackerActions ? 'warn' : 'calm');
 
   function renderThreat() {
     const box = $('threat');
@@ -696,19 +702,35 @@
       box.hidden = true;
       return;
     }
-    const t = computeThreat(s);
+    const t = AI.defenderThreat(s);
     box.hidden = false;
     if (!t) {
       box.className = 'threat-box calm';
       box.innerHTML = '<b>Threat:</b> the Attacker has no route to your jewels right now.';
       return;
     }
-    const lvl = threatLevel(t.actions);
+    const lvl = threatLevel(t);
+    const where = '<b>' + RF.cellName(t.cell) + '</b>';
+    let text;
+    if (t.nextTurn) text = '⚠ <b>Threat:</b> it has found your jewel on ' + where + ' and can steal it on its next turn.';
+    else if (t.revealed) text = '<b>Threat:</b> it has found your jewel on ' + where + ' and is about ' + t.actions + ' actions from stealing it.';
+    else if (t.actions - 1 <= RF.CONFIG.attackerActions) text = '<b>Threat:</b> it could reach your jewel on ' + where + ' next turn, and steal it the turn after.';
+    else text = '<b>Threat:</b> the Attacker is about ' + t.actions + ' actions from stealing your jewel on ' + where + '.';
+    let html = text + ' <span class="muted small">The dashed route is the way it would go if it knew where the jewel is.</span>';
+    if (lvl !== 'calm' && s.actionsLeft > 0 && !ui.busy) {
+      const sugg = AI.suggestResponses(s).slice(0, 3);
+      if (sugg.length) {
+        html += '<div class="suggest"><span class="small">Responses that would slow it down:</span>' +
+          sugg.map((x, n) => '<button class="btn" data-suggest="' + n + '" type="button">' + esc(x.label) +
+            ' <em>(' + (x.gain >= 50 ? 'blocks the route' : '+' + x.gain + ' actions for it') + (x.spent ? ', ' + x.spent + ' Insight' : '') +
+            (x.scoreDelta < 0 ? ', ' + x.scoreDelta + ' score' : '') + ')</em></button>').join('') + '</div>';
+        ui.suggestions = sugg;
+      } else {
+        html += '<div class="suggest small">No single action stops this route. Consider Isolate, a Swap, or a Sensor on the path.</div>';
+      }
+    }
     box.className = 'threat-box ' + lvl;
-    box.innerHTML = '<b>' + (lvl === 'danger' ? '⚠ ' : '') + 'Threat:</b> the Attacker is about <b>' + t.actions + ' action' + (t.actions === 1 ? '' : 's') +
-      '</b> from stealing the jewel on <b>' + RF.cellName(t.cell) + '</b>' +
-      (lvl === 'danger' ? ', so it could happen on its next turn.' : lvl === 'warn' ? ', within two of its turns.' : '.') +
-      ' <span class="muted small">The dashed route shows the way it would go, if it knew where the jewel is.</span>';
+    box.innerHTML = html;
   }
 
   function drawFlow(e, cls, title, parent) {
@@ -820,8 +842,11 @@
       pips.innerHTML = '';
       const err = RF.validateSetup(ui.setup);
       const msg = $('setup-msg');
-      msg.textContent = err || 'Ready. You go first.';
-      msg.className = 'setup-msg ' + (err ? 'bad' : 'ok');
+      const exposed = err ? [] : RF.exposedJewels(ui.setup);
+      msg.textContent = err || (exposed.length
+        ? '⚠ The jewel on ' + exposed.map(RF.cellName).join(' and ') + ' is next to a breach point (row 1 or the storefront H). The Attacker can reach it on its first turn. You can still start.'
+        : 'Ready. You go first.');
+      msg.className = 'setup-msg ' + (err ? 'bad' : exposed.length ? 'warn' : 'ok');
       $('btn-start').disabled = !!err;
       $('meters').innerHTML = '';
       renderThreat();
@@ -838,7 +863,7 @@
       pips.classList.add('attacker');
     }
     pips.innerHTML = '';
-    for (let n = 0; n < RF.CONFIG.actionsPerTurn; n++) {
+    for (let n = 0; n < (s.turn === 'attacker' ? RF.CONFIG.attackerActions : RF.CONFIG.actionsPerTurn); n++) {
       const p = document.createElement('span');
       p.className = 'pip' + (n < s.actionsLeft && !s.winner ? ' on' : '');
       pips.appendChild(p);
@@ -867,6 +892,7 @@
       ringfence: Object.keys(RF.APPS).some((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a)),
       deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0,
       swap: !s.swappedThisTurn && s.swapsUsed < RF.CONFIG.swapsPerGame && s.insight >= RF.CONFIG.swapCost,
+      isolate: s.insight >= RF.CONFIG.isolateCost && s.wallsLeft > 0,
     };
     const active = myTurn && !ui.busy && ui.phase === 'play';
     document.querySelectorAll('#actions .act').forEach((b) => {
@@ -942,6 +968,20 @@
           .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
     } else if (ui.mode === 'deploy') {
       html = 'Tap an empty cell to place a face-down Sensor (' + s.pool.sensor + ' left). The Attacker sees you place it, so it knows it’s a Sensor, unless you later swap it.' + cancelBtn();
+    } else if (ui.mode === 'isolate') {
+      const k = ui.draft && ui.draft.edge;
+      if (!k) {
+        html = '<b>⛔ Isolate.</b> Emergency block on <b>any</b> edge, even a known business flow or an allowed exception, for ' + RF.CONFIG.isolateCost +
+          ' Insight. If a business flow runs there, that’s an outage (−' + RF.CONFIG.outagePenalty + ' score) and it stays broken. Tap an edge.' + cancelBtn();
+      } else {
+        const e = RF.EDGES[k];
+        const known = s.discovered[k];
+        html = '<b>Isolate ' + RF.cellName(e.a) + '–' + RF.cellName(e.b) + '?</b><br>' +
+          (known ? '<span class="bad">This is a known business flow: blocking it is an outage (−' + RF.CONFIG.outagePenalty + ' score).</span>'
+            : 'Security Intelligence hasn’t seen a flow here. If one exists, it becomes an outage.') +
+          '<div class="row"><button class="btn primary" data-hint="isolate" type="button">Isolate (' + RF.CONFIG.isolateCost + ' Insight)</button>' +
+          '<button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
+      }
     } else if (ui.mode === 'swap') {
       const d = ui.draft || {};
       const cost = [RF.CONFIG.swapCost ? RF.CONFIG.swapCost + ' Insight' : null, RF.CONFIG.swapScorePenalty ? '−' + RF.CONFIG.swapScorePenalty + ' score' : null].filter(Boolean).join(', ') || 'free';
@@ -1011,11 +1051,17 @@
       const h = b.dataset.hint;
       if (h === 'cancel') { ui.mode = null; ui.pending = []; ui.draft = null; }
       else if (h === 'publish') return publishAllow();
+      else if (h === 'isolate' && ui.draft && ui.draft.edge) return defenderDo({ type: 'isolate', edge: ui.draft.edge });
       else if (h === 'fence') return confirmFence();
       else if (h === 'commit' && ui.pending.length) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
       else if (h === 'swap-real' || h === 'swap-bluff')
         return defenderDo({ type: 'swap', a: ui.draft.a, b: ui.draft.b, really: h === 'swap-real' });
       render();
+    });
+    $('threat').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-suggest]');
+      const sg = b && ui.suggestions && ui.suggestions[+b.dataset.suggest];
+      if (sg) defenderDo(sg.action);
     });
     $('btn-undo').addEventListener('click', undo);
     $('btn-end').addEventListener('click', endDefenderTurn);
@@ -1089,7 +1135,7 @@
         return render();
       }
       if (ui.phase !== 'play') return;
-      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'allow', 5: 'ringfence', 6: 'deploy', 7: 'swap' };
+      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'ringfence', 5: 'allow', 6: 'deploy', 7: 'swap', 8: 'isolate' };
       if (map[e.key]) {
         const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
         if (b && !b.disabled) pickMode(map[e.key]);

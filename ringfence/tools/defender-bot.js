@@ -76,6 +76,15 @@ function candidateResponses(s, canFence) {
         out.push({ type: 'deploy', cell: c });
     }
   }
+  // Isolate edges on the Attacker's route that walls can't cover (known
+  // business flows, allowed exceptions): an outage beats losing the jewel.
+  if (s.insight >= RF.CONFIG.isolateCost && s.wallsLeft > 0) {
+    const t = AI.defenderThreat(s);
+    if (t) for (let k = 0; k + 1 < t.path.length; k++) {
+      const nb = RF.NEIGHBORS[t.path[k]].find((n) => n.cell === t.path[k + 1]);
+      if (nb && RF.wallError(s, nb.key) && !s.walls[nb.key]) out.push({ type: 'isolate', edge: nb.key });
+    }
+  }
   return out.concat(swapCandidates(s));
 }
 

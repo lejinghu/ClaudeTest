@@ -27,11 +27,12 @@
   const INF = 1e9;
 
   const LEVELS = {
-    easy: { noise: 30, robust: false, recon: false, reconThreshold: 1, depth: 1 },
-    normal: { noise: 1.5, robust: true, recon: true, reconThreshold: 0.3, depth: 1 },
+    // actions: the Attacker's actions per turn at this difficulty.
+    easy: { noise: 30, robust: false, recon: false, reconThreshold: 1, depth: 1, actions: 3 },
+    normal: { noise: 1.5, robust: true, recon: true, reconThreshold: 0.3, depth: 1, actions: 4 },
     // Hard searches two actions ahead within its turn (expectimax over what
     // a face-down token might be), so Recon is valued for what it reveals.
-    hard: { noise: 0.5, robust: true, recon: false, reconThreshold: 1, depth: 2, beam: 6 },
+    hard: { noise: 0.5, robust: true, recon: false, reconThreshold: 1, depth: 2, beam: 6, actions: 4 },
   };
 
   const W = {
@@ -304,5 +305,98 @@
 
   const pct = (p) => Math.round(p * 100) + '%';
 
-  return { chooseAction, evaluate, beliefs, pathToExit, worstCut, LEVELS, WEIGHTS: W };
+  // ------------------------------------------------ Defender-side analysis
+
+  // The state as the Defender can know it: only flows Security Intelligence
+  // has revealed. Used to preview a response without peeking at hidden flows.
+  function defenderKnown(s) {
+    const c = RF.clone(s);
+    const flows = {};
+    for (const k in c.flows) if (c.discovered[k]) flows[k] = c.flows[k];
+    c.flows = flows;
+    return c;
+  }
+
+  // The Attacker's quickest way to steal one of the Defender's real jewels,
+  // judged from what the Attacker can know:
+  //   { cell, actions, path, revealed, nextTurn }
+  // actions = stones still to place (including exploit costs) + the Exfil.
+  // nextTurn = it could steal it on its very next turn. A jewel it hasn't
+  // revealed yet can't be stolen before the turn after, because staging the
+  // data takes a turn.
+  function defenderThreat(s) {
+    if (!s || s.winner) return null;
+    const v = RF.attackerView(s);
+    const bel = beliefs(v);
+    let best = null;
+    for (const c in s.tokens) {
+      const t = s.tokens[c];
+      if (t.type !== 'jewel') continue;
+      const r = pathToExit(v, bel, +c);
+      if (r.cost >= INF) continue;
+      const actions = Math.ceil(r.cost - 1e-9) + 1;
+      const revealed = !!t.faceUp;
+      const nextTurn = revealed && actions <= RF.CONFIG.attackerActions;
+      // Rank: can it steal next turn, then fewest actions (unrevealed jewels
+      // need an extra turn to stage).
+      const rank = actions + (revealed ? 0 : RF.CONFIG.attackerActions);
+      if (!best || rank < best.rank) best = { cell: +c, actions, path: r.path, revealed, nextTurn, rank };
+    }
+    return best;
+  }
+
+  // Candidate Defender responses to the current threat, each previewed on the
+  // Defender-known state: [{ label, action, gain }], best first.
+  function suggestResponses(s) {
+    const t = defenderThreat(s);
+    if (!t || s.turn !== 'defender' || s.actionsLeft <= 0) return [];
+    const cands = [];
+    const path = t.path;
+    for (let k = 0; k + 1 < path.length; k++) {
+      const nb = RF.NEIGHBORS[path[k]].find((n) => n.cell === path[k + 1]);
+      if (!nb) continue; // hub hop, not an edge
+      const e = RF.EDGES[nb.key];
+      const name = RF.cellName(e.a) + '–' + RF.cellName(e.b);
+      if (!RF.wallError(s, nb.key)) cands.push({ label: 'Segment: wall ' + name, action: { type: 'segment', edges: [nb.key] } });
+      else if (!s.walls[nb.key]) {
+        const flow = s.discovered[nb.key];
+        cands.push({ label: 'Isolate ' + name + (flow ? ' (breaks a business flow: −' + RF.CONFIG.outagePenalty + ' score)' : ''), action: { type: 'isolate', edge: nb.key } });
+      }
+    }
+    for (const c of path) {
+      if (RF.isInfra(c) && !s.hardened[c]) cands.push({ label: 'Harden ' + RF.REGION[c], action: { type: 'harden', cell: c } });
+      if (!s.stones[c] && !s.tokens[c] && !RF.isInfra(c) && s.pool.sensor > 0)
+        cands.push({ label: 'Deploy a Sensor on ' + RF.cellName(c), action: { type: 'deploy', cell: c } });
+    }
+    const jt = s.tokens[t.cell];
+    if (jt && !jt.faceUp) {
+      for (const c in s.tokens) {
+        if (s.tokens[c].type === 'sensor' && !RF.swapError(s, t.cell, +c)) {
+          cands.push({ label: 'Swap the jewel on ' + RF.cellName(t.cell) + ' with the Sensor on ' + RF.cellName(+c), action: { type: 'swap', a: t.cell, b: +c, really: true } });
+        }
+      }
+    }
+    const baseRank = t.rank;
+    const out = [];
+    const seen = new Set();
+    for (const cand of cands) {
+      if (seen.has(cand.label)) continue;
+      seen.add(cand.label);
+      const c = defenderKnown(s);
+      if (!RF.act(c, cand.action).ok) continue;
+      const nt = defenderThreat(c);
+      const gain = nt ? nt.rank - baseRank : 99;
+      // What it costs: Score lost (outages) and Insight spent.
+      const scoreDelta = c.score - s.score;
+      const spent = s.insight - c.insight;
+      if (gain > 0) out.push(Object.assign(cand, { gain, after: nt, scoreDelta, spent }));
+    }
+    // Stopping the route matters most; among options that do about as much,
+    // prefer the one that costs no Score, then the one that costs less Insight.
+    const tier = (g) => (g >= 50 ? 3 : g >= RF.CONFIG.attackerActions ? 2 : 1);
+    out.sort((x, y) => tier(y.gain) - tier(x.gain) || y.scoreDelta - x.scoreDelta || x.spent - y.spent || y.gain - x.gain);
+    return out;
+  }
+
+  return { chooseAction, evaluate, beliefs, pathToExit, worstCut, defenderKnown, defenderThreat, suggestResponses, LEVELS, WEIGHTS: W };
 });
