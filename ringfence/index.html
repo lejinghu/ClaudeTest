@@ -28,7 +28,6 @@
   --zone: #ea580c;
   --jewel: #d97706;
   --sensor: #2563eb;
-  --decoy: #64748b;
   --hardened: #bfdbfe;
   --infra: #e2e8f0;
   --target: #f59e0b;
@@ -58,7 +57,6 @@
     --zone: #fb923c;
     --jewel: #fbbf24;
     --sensor: #60a5fa;
-    --decoy: #94a3b8;
     --hardened: #1e3a8a;
     --infra: #1f2937;
     --target: #fbbf24;
@@ -115,7 +113,6 @@ code { font-size: 0.9em; }
 .lg-flow { background: repeating-linear-gradient(90deg, var(--flow) 0 4px, transparent 4px 7px); height: 4px; }
 .lg-allow { background: var(--flow); }
 .lg-emergency { background: var(--zone); }
-.lg-zone { background: repeating-linear-gradient(90deg, var(--zone) 0 7px, transparent 7px 11px); }
 .lg-exit { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed var(--muted); }
 
 .panel { display: flex; flex-direction: column; gap: 12px; }
@@ -222,7 +219,6 @@ code { font-size: 0.9em; }
 .cell-hit.selected { stroke: var(--text); stroke-width: 2; stroke-dasharray: 4 3; }
 .cell-hit.recent { stroke: var(--recent); stroke-width: 2.5; }
 .border { stroke: var(--grid-strong); stroke-width: 1.6; stroke-linecap: square; }
-.zone-line { stroke: var(--zone); stroke-width: 3; stroke-dasharray: 9 6; }
 .fence { stroke: var(--fence); stroke-width: 6; stroke-linecap: round; }
 .wall { fill: var(--wall); }
 .wall.pending { fill: none; stroke: var(--wall); stroke-width: 2; stroke-dasharray: 4 3; }
@@ -244,7 +240,6 @@ code { font-size: 0.9em; }
 .t-infra { font-size: 11px; font-weight: 800; fill: var(--text); letter-spacing: 0.04em; }
 .t-axis { font-size: 12px; fill: var(--muted); font-weight: 600; }
 .t-internet { font-size: 11px; fill: var(--muted); letter-spacing: 0.4em; font-weight: 700; }
-.t-zone { font-size: 9px; fill: var(--zone); font-weight: 800; letter-spacing: 0.08em; }
 .internet-band { fill: var(--surface-2); }
 .globe { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .shield { fill: var(--wall); }
@@ -257,7 +252,7 @@ code { font-size: 0.9em; }
 .tok-jewel { fill: var(--jewel); }
 .tok-sensor { fill: none; stroke: var(--sensor); stroke-width: 1.8; }
 .tok-sensor-dot { fill: var(--sensor); }
-.tok-decoy { fill: none; stroke: var(--decoy); stroke-width: 1.6; stroke-dasharray: 2 2; }
+.t-odds { font-size: 9px; font-weight: 700; fill: var(--stone); }
 .tok-seen { fill: var(--stone); }
 .edge-hit { fill: transparent; cursor: pointer; }
 .edge-hit:hover { fill: color-mix(in srgb, var(--wall) 30%, transparent); }
@@ -273,6 +268,7 @@ code { font-size: 0.9em; }
   .board-wrap { padding: 4px; }
   .meter.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.lg-odds { width: auto; height: auto; background: none; color: var(--stone); font-size: 10px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -298,8 +294,8 @@ code { font-size: 0.9em; }
       <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
       <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
       <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
-      <li><span class="lg lg-zone"></span>Dev / Prod zone boundary</li>
       <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened infra)</li>
+      <li><span class="lg lg-odds">37%</span>Attacker’s jewel odds for a token</li>
     </ul>
   </section>
 
@@ -312,8 +308,8 @@ code { font-size: 0.9em; }
     <div id="meters" class="meters"></div>
 
     <div id="setup-panel" class="card" hidden>
-      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, one token in each Prod app (F, G, H, J, K, L). The Attacker can see where your tokens are, but not what they are.</p>
-      <p class="muted small">Tap a Prod cell to move that app’s token there. Tap a token to switch it between Jewel and Sensor.</p>
+      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, each in a different app. The Attacker can see where your tokens are, but not what they are.</p>
+      <p class="muted small">Tap a cell to place a token (Jewels first). Tap a token to turn a Jewel into a Sensor, or to remove a Sensor. Tap another cell in the same app to move its token there. Careful: a Jewel on row 1 or in the storefront H sits on an exit.</p>
       <p id="setup-msg" class="setup-msg"></p>
       <div class="row">
         <button id="btn-random" class="btn" type="button">Randomize</button>
@@ -328,7 +324,8 @@ code { font-size: 0.9em; }
         <button class="act" data-action="segment" type="button"><span class="num">3</span><span class="lbl">Segment</span><span class="cost">1 Insight · 2 walls</span></button>
         <button class="act" data-action="allow" type="button"><span class="num">4a</span><span class="lbl">Allow</span><span class="cost">Publish exceptions</span></button>
         <button class="act" data-action="ringfence" type="button"><span class="num">4b</span><span class="lbl">Ring-fence</span><span class="cost">Insight = app size</span></button>
-        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Deploy</span><span class="cost">1 Insight</span></button>
+        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Deploy</span><span class="cost">1 Insight · Sensor</span></button>
+        <button class="act" data-action="swap" type="button"><span class="num">⇄</span><span class="lbl">Swap</span><span class="cost">Secret, costly</span></button>
       </div>
       <div id="hint" class="hint"></div>
       <div class="row">
@@ -356,6 +353,12 @@ code { font-size: 0.9em; }
           <option value="1100">Slow</option>
           <option value="600">Normal</option>
           <option value="200">Fast</option>
+        </select>
+      </label>
+      <label>Swap cost rule (playtest)
+        <select id="set-swap">
+          <option value="insight">3 Insight, max 2 per game</option>
+          <option value="score">−1 score each, no limit</option>
         </select>
       </label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
@@ -395,10 +398,11 @@ code { font-size: 0.9em; }
     <ul class="rules-actions">
       <li><strong>1 Assess</strong>: +2 Insight. Insight pays for everything else. <em>Stage 1: Segmentation Assessment.</em></li>
       <li><strong>2 Harden</strong> an infrastructure service (NTP, DNS, LDAP) for 1 Insight. It evicts any stone there, closes the hub shortcut, and is no longer an exit. <strong>+1 score.</strong> <em>Stage 2: Infrastructure Services.</em></li>
-      <li><strong>3 Segment</strong>: place up to 2 walls on border edges for 1 Insight. Seal the Dev/Prod boundary for <strong>+2 score</strong> and leakage alerts. <em>Stage 3: Zones.</em></li>
+      <li><strong>3 Segment</strong>: place up to 2 walls on border edges (between apps, or next to infra) for 1 Insight. Good for cutting an attacker chain.</li>
       <li><strong>4a Allow</strong>: publish the Security Intelligence recommendation for an app. This adds allow rules (exceptions) for every flow observed on its border. It’s free; manual exceptions cost 1 Insight each. <em>Stage 4: recommendations.</em></li>
       <li><strong>4b Ring-fence</strong> an app for Insight equal to its size. Everything on its border that isn’t an exception is blocked. <strong>+3 score.</strong> Afterwards you can also wall edges inside it. <em>Stage 4: App microsegmentation.</em></li>
-      <li><strong>★ Deploy</strong> a face-down Sensor or Decoy on an empty cell for 1 Insight. <em>SSP: IDS/IPS inspects the traffic you allow.</em></li>
+      <li><strong>★ Deploy</strong> a face-down Sensor on an empty cell for 1 Insight. <em>SSP: IDS/IPS inspects the traffic you allow.</em></li>
+      <li><strong>⇄ Swap</strong> two face-down tokens, or only pretend to. The Attacker can’t tell, so everything it scouted on those two becomes a guess. It’s costly (3 Insight, max 2 per game, or −1 score with the other rule), once per turn, and not next to an attacker stone.</li>
     </ul>
     <p class="muted small">The real workflow: observe traffic → publish exceptions for valid flows → lock down everything else. Skip a step and you break production, or leave paths open.</p>
     <h3>The Attacker</h3>
@@ -410,10 +414,10 @@ code { font-size: 0.9em; }
     </ul>
     <h3>Tokens and capture</h3>
     <ul>
-      <li>A stone that enters a <strong>Jewel</strong> reveals it. A <strong>Sensor</strong> removes the stone and ends the Attacker’s turn. A <strong>Decoy</strong> does nothing.</li>
+      <li>A stone that enters a <strong>Jewel</strong> reveals it. A <strong>Sensor</strong> removes the stone and ends the Attacker’s turn. The red % under each token is the Attacker’s current jewel odds for it.</li>
       <li><strong>Quarantine</strong>: an attacker group with no open edge to an empty cell is removed. <strong>+1 score.</strong></li>
     </ul>
-    <p class="muted small">Shortcuts: 1–6 pick an action · Esc cancel · U undo · E end turn.</p>
+    <p class="muted small">Shortcuts: 1–7 pick an action · Esc cancel · U undo · E end turn.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>
@@ -437,6 +441,11 @@ code { font-size: 0.9em; }
  * steps, as in the real workflow: publish allow rules (exceptions) for its
  * flows, then ring-fence it to block everything else. A real flow that ends
  * up blocked is an outage.
+ *
+ * v0.3: there are no environments (Dev/Prod) or Decoys. The Defender can
+ * secretly swap two face-down tokens, or pretend to. The Attacker's jewel
+ * odds for each token are public bookkeeping (token.ak), so an unseen swap
+ * blurs whatever Recon had learned.
  */
 (function (root, factory) {
   const RF = factory();
@@ -464,12 +473,15 @@ code { font-size: 0.9em; }
     walls: 12,
     stones: 20,
     deploySensors: 3,
-    deployDecoys: 3,
     setupJewels: 3,
+    setupSensors: 3,
     scoreHarden: 1,
     scoreRingfence: 3,
-    scoreZoneSealed: 2,
     scoreQuarantine: 1,
+    // Secret swap of two face-down tokens (design doc Section 5.3).
+    swapCost: 3, // Insight
+    swapScorePenalty: 0, // Score lost per swap (the "migration downtime" rule)
+    swapsPerGame: 2,
     // Hidden business flows (design doc Section 5.7).
     flowsPerGame: 11,
     rareFlowShare: 0.3,
@@ -492,24 +504,23 @@ code { font-size: 0.9em; }
   ];
 
   const APPS = {
-    A: { name: 'Developer desktops', zone: 'dev' },
-    B: { name: 'Build agents', zone: 'dev' },
-    C: { name: 'Test harness', zone: 'dev' },
-    D: { name: 'CI/CD pipeline', zone: 'dev' },
-    E: { name: 'Staging', zone: 'dev' },
-    F: { name: 'HR system', zone: 'prod' },
-    G: { name: 'Inventory', zone: 'prod' },
-    H: { name: 'Web storefront', zone: 'prod', internetFacing: true },
-    J: { name: 'App / API tier', zone: 'prod' },
-    K: { name: 'Customer database', zone: 'prod' },
-    L: { name: 'Payments', zone: 'prod' },
+    A: { name: 'Developer desktops' },
+    B: { name: 'Build agents' },
+    C: { name: 'Test harness' },
+    D: { name: 'CI/CD pipeline' },
+    E: { name: 'Staging' },
+    F: { name: 'HR system' },
+    G: { name: 'Inventory' },
+    H: { name: 'Web storefront', internetFacing: true },
+    J: { name: 'App / API tier' },
+    K: { name: 'Customer database' },
+    L: { name: 'Payments' },
   };
   const INFRA = {
     NTP: 'Time service',
     DNS: 'Name resolution',
     LDAP: 'Directory',
   };
-  const PROD_APPS = ['F', 'G', 'H', 'J', 'K', 'L'];
 
   // ---------------------------------------------------------------- geometry
 
@@ -522,7 +533,6 @@ code { font-size: 0.9em; }
   const cellIndex = (name) =>
     (parseInt(name.slice(1), 10) - 1) * SIZE + COLS.indexOf(name[0]);
   const isInfra = (i) => REGION[i] in INFRA;
-  const zoneOf = (i) => (rowOf(i) < 3 ? 'dev' : 'prod');
   const edgeKey = (a, b) => (a < b ? a + '-' + b : b + '-' + a);
 
   const APP_CELLS = {};
@@ -545,7 +555,6 @@ code { font-size: 0.9em; }
       // 'v' = the two cells sit side by side, so the edge is a vertical line.
       orient: rowOf(a) === rowOf(b) ? 'v' : 'h',
       border: REGION[a] !== REGION[b],
-      zone: rowOf(a) === 2 && rowOf(b) === 3,
     };
     NEIGHBORS[a].push({ cell: b, key });
     NEIGHBORS[b].push({ cell: a, key });
@@ -557,8 +566,6 @@ code { font-size: 0.9em; }
       if (r + 1 < SIZE) addEdge(i, i + SIZE);
     }
   }
-  const ZONE_EDGES = Object.values(EDGES).filter((e) => e.zone).map((e) => e.key);
-
   // Edges where two different applications touch: the only places a
   // business flow can run. Keyed by app pair, e.g. 'G|J'.
   const APP_PAIRS = {};
@@ -568,7 +575,7 @@ code { font-size: 0.9em; }
     (APP_PAIRS[pair] = APP_PAIRS[pair] || []).push(e.key);
   });
 
-  // Edges on an app's outer border (to another app, infra, or zone).
+  // Edges on an app's outer border (to another app or infra).
   function appBorderEdges(app) {
     return Object.values(EDGES)
       .filter((e) => e.border && (REGION[e.a] === app) !== (REGION[e.b] === app))
@@ -595,35 +602,38 @@ code { font-size: 0.9em; }
 
   // ---------------------------------------------------------------- setup
 
-  // Setup is a map { cellIndex: 'jewel' | 'sensor' }.
+  // Setup is a map { cellIndex: 'jewel' | 'sensor' }: 3 Jewels and 3 Sensors,
+  // each in a different application.
   function validateSetup(setup) {
     const cells = Object.keys(setup).map(Number);
     const perApp = {};
     let jewels = 0;
+    let sensors = 0;
     for (const c of cells) {
-      if (isInfra(c) || APPS[REGION[c]].zone !== 'prod')
-        return 'Tokens go on Prod application cells only.';
-      if (perApp[REGION[c]]) return 'Only one token per Prod app.';
+      if (isInfra(c)) return 'Tokens go on application cells, not infrastructure.';
+      if (perApp[REGION[c]]) return 'Only one token per app.';
       perApp[REGION[c]] = true;
       if (setup[c] === 'jewel') jewels++;
-      else if (setup[c] !== 'sensor') return 'Tokens must be Jewels or Sensors.';
+      else if (setup[c] === 'sensor') sensors++;
+      else return 'Tokens must be Jewels or Sensors.';
     }
-    const missing = PROD_APPS.filter((a) => !perApp[a]);
-    if (missing.length) return 'Place a token in app ' + missing.join(', ') + '.';
-    if (jewels !== CONFIG.setupJewels)
-      return 'Place exactly ' + CONFIG.setupJewels + ' Crown Jewels (you have ' + jewels + ').';
+    if (jewels !== CONFIG.setupJewels || sensors !== CONFIG.setupSensors)
+      return 'Place ' + CONFIG.setupJewels + ' Crown Jewels and ' + CONFIG.setupSensors + ' Sensors (you have ' +
+        jewels + ' and ' + sensors + ').';
     return null;
   }
 
+  // Random setup: jewels go in apps without an exit cell (a jewel on an exit
+  // can be stolen in two actions); sensors go anywhere else.
   function randomSetup(rng) {
     const setup = {};
-    const apps = PROD_APPS.slice();
-    shuffle(apps, rng);
-    apps.forEach((app, n) => {
-      const cells = APP_CELLS[app];
-      const cell = cells[Math.floor(rng() * cells.length)];
-      setup[cell] = n < CONFIG.setupJewels ? 'jewel' : 'sensor';
-    });
+    const hasExit = (app) => APPS[app].internetFacing || APP_CELLS[app].some((c) => rowOf(c) === 0);
+    const safe = shuffle(Object.keys(APPS).filter((a) => !hasExit(a)), rng);
+    const jewelApps = safe.slice(0, CONFIG.setupJewels);
+    const rest = shuffle(Object.keys(APPS).filter((a) => !jewelApps.includes(a)), rng).slice(0, CONFIG.setupSensors);
+    const pick = (app) => APP_CELLS[app][Math.floor(rng() * APP_CELLS[app].length)];
+    jewelApps.forEach((a) => (setup[pick(a)] = 'jewel'));
+    rest.forEach((a) => (setup[pick(a)] = 'sensor'));
     return setup;
   }
 
@@ -666,7 +676,9 @@ code { font-size: 0.9em; }
     if (err) throw new Error(err);
     const tokens = {};
     Object.keys(setup).forEach((c) => {
-      tokens[c] = { type: setup[c], origin: 'setup', faceUp: false, recon: false };
+      // ak: the Attacker's jewel odds for this token (public). null = use the
+      // prior spread over all setup tokens it knows nothing about.
+      tokens[c] = { type: setup[c], origin: 'setup', faceUp: false, recon: false, ak: null };
     });
     return {
       round: 1,
@@ -678,14 +690,14 @@ code { font-size: 0.9em; }
       jewelsTaken: 0,
       wallsLeft: CONFIG.walls,
       stonesLeft: CONFIG.stones,
-      pool: { sensor: CONFIG.deploySensors, decoy: CONFIG.deployDecoys },
-      deployGone: { sensor: 0, decoy: 0 },
+      pool: { sensor: CONFIG.deploySensors },
+      swapsUsed: 0,
+      swappedThisTurn: false,
       stones: new Array(N).fill(0),
       walls: {},
       hardened: {},
       fenced: {},
       tokens,
-      zoneSealed: false,
       winner: null,
       reason: '',
       flows: opts.flows || generateFlows(opts.rng || Math.random), // hidden truth
@@ -795,6 +807,44 @@ code { font-size: 0.9em; }
   }
 
   const ringfenceCost = (app) => APP_CELLS[app].length;
+
+  // The Attacker's chance that each face-down token is a Crown Jewel, from
+  // public information only: Recon results, what was deployed mid-game, and
+  // which tokens were (maybe) swapped. Tokens with no information share
+  // whatever jewel probability is left over.
+  function attackerJewelOdds(s) {
+    let remaining = CONFIG.setupJewels - s.jewelsTaken;
+    const unknown = [];
+    const odds = {};
+    for (const c in s.tokens) {
+      const t = s.tokens[c];
+      if (t.faceUp) {
+        if (t.type === 'jewel') remaining--;
+        continue;
+      }
+      if (t.ak == null) unknown.push(c);
+      else {
+        odds[c] = t.ak;
+        remaining -= t.ak;
+      }
+    }
+    const share = unknown.length ? Math.max(0, Math.min(1, remaining / unknown.length)) : 0;
+    unknown.forEach((c) => (odds[c] = share));
+    return odds;
+  }
+
+  function swapError(s, a, b) {
+    if (a === b) return 'Pick two different tokens.';
+    for (const c of [a, b]) {
+      const t = s.tokens[c];
+      if (!t || t.faceUp) return 'Swap needs two face-down tokens.';
+      if (NEIGHBORS[c].some((n) => s.stones[n.cell])) return 'Tokens next to an attacker stone can’t be moved.';
+    }
+    if (s.swappedThisTurn) return 'Only one swap per turn.';
+    if (s.swapsUsed >= CONFIG.swapsPerGame) return 'No swaps left this game.';
+    if (s.insight < CONFIG.swapCost) return 'Swapping costs ' + CONFIG.swapCost + ' Insight.';
+    return null;
+  }
 
   // Allow cost: 1, plus 1 per manual exception (one the recommendation didn't include).
   function allowCost(s, edges) {
@@ -917,17 +967,41 @@ code { font-size: 0.9em; }
       }
       case 'deploy': {
         const c = a.cell;
-        const kind = a.kind;
-        if (kind !== 'sensor' && kind !== 'decoy') return 'Deploy a Sensor or a Decoy.';
-        if (s.pool[kind] <= 0) return 'No ' + kind + 's left in your pool.';
+        if (s.pool.sensor <= 0) return 'No Sensors left in your pool.';
         if (s.insight < CONFIG.deployCost) return 'Not enough Insight.';
         if (isInfra(c)) return 'Tokens cannot go on infrastructure cells.';
         if (s.stones[c]) return 'That cell has an attacker stone on it.';
         if (s.tokens[c]) return 'That cell already has a token.';
         s.insight -= CONFIG.deployCost;
-        s.pool[kind]--;
-        s.tokens[c] = { type: kind, origin: 'deploy', faceUp: false, recon: false };
-        ev.push({ kind: 'deploy', cell: c, text: 'Deploy a face-down ' + kind + ' on ' + cellName(c) + '.' });
+        s.pool.sensor--;
+        // Placed in plain sight mid-game, so the Attacker knows it's a Sensor
+        // until a swap blurs it.
+        s.tokens[c] = { type: 'sensor', origin: 'deploy', faceUp: false, recon: false, ak: 0 };
+        ev.push({ kind: 'deploy', cell: c, text: 'Deploy a face-down Sensor on ' + cellName(c) + '.' });
+        break;
+      }
+      case 'swap': {
+        const err = swapError(s, a.a, a.b);
+        if (err) return err;
+        const odds = attackerJewelOdds(s);
+        const mixed = (odds[a.a] + odds[a.b]) / 2;
+        s.insight -= CONFIG.swapCost;
+        s.score -= CONFIG.swapScorePenalty;
+        s.swapsUsed++;
+        s.swappedThisTurn = true;
+        if (a.really) [s.tokens[a.a], s.tokens[a.b]] = [s.tokens[a.b], s.tokens[a.a]];
+        [s.tokens[a.a], s.tokens[a.b]].forEach((t) => {
+          t.recon = false;
+          t.ak = mixed;
+        });
+        const costs = [];
+        if (CONFIG.swapCost) costs.push(CONFIG.swapCost + ' Insight');
+        if (CONFIG.swapScorePenalty) costs.push('−' + CONFIG.swapScorePenalty + ' score');
+        ev.push({
+          kind: 'swap', cells: [a.a, a.b], really: !!a.really,
+          text: 'Swap: shuffled the tokens on ' + cellName(a.a) + ' and ' + cellName(a.b) +
+            (a.really ? ' (they really swapped)' : ' (a bluff: nothing moved)') + (costs.length ? ', ' + costs.join(', ') : '') + '.',
+        });
         break;
       }
       default:
@@ -1001,11 +1075,6 @@ code { font-size: 0.9em; }
         });
       }
     }
-    if (!s.zoneSealed && ZONE_EDGES.every((k) => !isOpen(s, k) || s.allows[k])) {
-      s.zoneSealed = true;
-      s.score += CONFIG.scoreZoneSealed;
-      ev.push({ kind: 'zone', text: 'Dev/Prod zone boundary sealed (+' + CONFIG.scoreZoneSealed + ' score). Leakage alerts are on.' });
-    }
   }
 
   function attackerAction(s, a, ev) {
@@ -1023,17 +1092,12 @@ code { font-size: 0.9em; }
         if (!canEnter(s, c)) return 'That cell cannot be entered.';
         if (!adjacentToStone(s, c)) return 'Spread needs an open edge from one of your stones.';
         if (s.stonesLeft <= 0) return 'No stones left.';
-        const leaked = s.zoneSealed && crossesZone(s, c);
         const viaFlow = NEIGHBORS[c].some((n) => s.stones[n.cell] && s.allows[n.key]);
         const viaHub = isInfra(c) && INFRA_CELLS.some((k) => k !== c && s.stones[k] && !s.hardened[k]);
         let how = '';
         if (viaHub && !NEIGHBORS[c].some((n) => s.stones[n.cell] && isOpen(s, n.key))) how = ' (hub hop)';
         else if (viaFlow) how = ' (through an allowed flow)';
         placeStone(s, c, ev, 'Spread to ' + cellName(c) + how + '.');
-        if (leaked) {
-          s.insight += 1;
-          ev.push({ kind: 'leak', cell: c, text: 'Leakage alert: attacker crossed the zone boundary. Defender +1 Insight.' });
-        }
         break;
       }
       case 'recon': {
@@ -1041,6 +1105,7 @@ code { font-size: 0.9em; }
         if (!t || t.faceUp) return 'Recon needs a face-down token.';
         if (!adjacentToStone(s, c)) return 'Recon needs an open edge from one of your stones.';
         t.recon = true;
+        t.ak = t.type === 'jewel' ? 1 : 0;
         ev.push({ kind: 'recon', cell: c, text: 'Recon on ' + cellName(c) + '.' });
         break;
       }
@@ -1066,12 +1131,6 @@ code { font-size: 0.9em; }
     return null;
   }
 
-  function crossesZone(s, c) {
-    const z = zoneOf(c);
-    const from = attackerNeighbors(s, c).filter((j) => s.stones[j]);
-    return from.length > 0 && from.every((j) => zoneOf(j) !== z);
-  }
-
   function placeStone(s, c, ev, text) {
     s.stones[c] = 1;
     s.stonesLeft--;
@@ -1084,14 +1143,9 @@ code { font-size: 0.9em; }
     } else if (t.type === 'sensor') {
       s.stones[c] = 0;
       s.stonesLeft++;
-      if (t.origin === 'deploy' && s.deployGone) s.deployGone.sensor++;
       delete s.tokens[c];
       s.actionsLeft = 1; // the caller's decrement takes it to 0
       ev.push({ kind: 'sensor', cell: c, text: 'SENSOR on ' + cellName(c) + ' triggered: stone removed, Attacker’s turn ends.' });
-    } else if (t.type === 'decoy') {
-      if (t.origin === 'deploy' && s.deployGone) s.deployGone.decoy++;
-      delete s.tokens[c];
-      ev.push({ kind: 'decoy', cell: c, text: 'Decoy on ' + cellName(c) + ' discarded.' });
     }
   }
 
@@ -1105,6 +1159,7 @@ code { font-size: 0.9em; }
       }
       s.turn = 'attacker';
       s.breachUsed = false;
+      s.swappedThisTurn = false;
     } else {
       s.round++;
       if (s.round > CONFIG.roundLimit) {
@@ -1144,15 +1199,13 @@ code { font-size: 0.9em; }
   }
 
   // What the Attacker is allowed to know: face-down token types are hidden
-  // unless revealed or seen by Recon, and so is the pool's Sensor/Decoy split.
+  // unless revealed or seen by Recon (and not swapped since). token.ak holds
+  // its public jewel odds.
   function attackerView(s) {
     const v = clone(s);
     Object.values(v.tokens).forEach((t) => {
       if (!t.faceUp && !t.recon) t.type = 'unknown';
     });
-    v.poolTotal = v.pool.sensor + v.pool.decoy;
-    delete v.pool;
-    delete v.deployGone;
     // The Defender's flow data is theirs alone. Allow rules on the board are public.
     v.flows = {};
     v.discovered = {};
@@ -1160,9 +1213,9 @@ code { font-size: 0.9em; }
   }
 
   return {
-    SIZE, N, CONFIG, LAYOUT, APPS, INFRA, PROD_APPS, REGION, EDGES, NEIGHBORS,
-    APP_CELLS, INFRA_CELLS, ZONE_EDGES, APP_PAIRS,
-    rowOf, colOf, cellName, cellIndex, isInfra, zoneOf, edgeKey,
+    SIZE, N, CONFIG, LAYOUT, APPS, INFRA, REGION, EDGES, NEIGHBORS,
+    APP_CELLS, INFRA_CELLS, APP_PAIRS,
+    rowOf, colOf, cellName, cellIndex, isInfra, edgeKey, attackerJewelOdds, swapError,
     makeRng, shuffle, validateSetup, randomSetup, generateFlows, newGame, clone,
     appBorderEdges, recommendedExceptions, isFlowActive, allowCost,
     isOpen, attackerNeighbors, canEnter, isExit, isBreachable, groupOf, allGroups,
@@ -1180,8 +1233,9 @@ code { font-size: 0.9em; }
  * where face-down tokens are 'unknown' unless revealed or seen by Recon, and
  * reasons about them with probabilities:
  *
- *   - Setup tokens: jewels still unaccounted for / setup tokens still unknown.
- *   - Tokens deployed mid-game are never jewels; assume most are Sensors.
+ *   - Public odds from the rules engine (RF.attackerJewelOdds): Recon results,
+ *     Sensors deployed in plain sight, and swaps that may or may not have
+ *     happened (which average the two tokens' odds).
  *
  * Levels: Easy and Normal pick one action at a time by expected value
  * (Normal also scouts likely Sensors before stepping on them); Hard searches
@@ -1215,30 +1269,22 @@ code { font-size: 0.9em; }
     lostAction: 18, // value of each action lost when a Sensor ends the turn
     stone: 1, // small cost per stone, so it doesn't sprawl for nothing
     pass: 4, // penalty for ending the turn with actions left
-    deploySensorPrior: 0.6,
   };
 
   // --------------------------------------------------------------- beliefs
 
+  // Jewel/Sensor odds for every face-down token, from the public bookkeeping
+  // in the rules engine (Recon results, deploys, possible swaps).
   function beliefs(v) {
-    let setupUnknown = 0;
-    let jewelsKnown = v.jewelsTaken;
-    for (const c in v.tokens) {
-      const t = v.tokens[c];
-      if (t.origin !== 'setup') continue;
-      if (t.type === 'unknown') setupUnknown++;
-      else if (t.type === 'jewel') jewelsKnown++;
-    }
-    const jewelsLeft = Math.max(0, RF.CONFIG.setupJewels - jewelsKnown);
-    const pSetup = setupUnknown ? Math.min(1, jewelsLeft / setupUnknown) : 0;
+    const odds = RF.attackerJewelOdds(v);
     const bel = {};
     for (const c in v.tokens) {
       const t = v.tokens[c];
-      if (t.type === 'jewel') bel[c] = { pJ: 1, pS: 0, pD: 0 };
-      else if (t.type === 'sensor') bel[c] = { pJ: 0, pS: 1, pD: 0 };
-      else if (t.type === 'decoy') bel[c] = { pJ: 0, pS: 0, pD: 1 };
-      else if (t.origin === 'setup') bel[c] = { pJ: pSetup, pS: 1 - pSetup, pD: 0 };
-      else bel[c] = { pJ: 0, pS: W.deploySensorPrior, pD: 1 - W.deploySensorPrior };
+      let pJ;
+      if (t.faceUp || t.type === 'jewel') pJ = t.type === 'jewel' ? 1 : 0;
+      else if (t.type === 'sensor') pJ = 0;
+      else pJ = odds[c] || 0;
+      bel[c] = { pJ, pS: 1 - pJ };
     }
     return bel;
   }
@@ -1355,7 +1401,7 @@ code { font-size: 0.9em; }
     }
     const b = bel[a.cell];
     const out = [];
-    [['jewel', b.pJ], ['sensor', b.pS], ['decoy', b.pD]].forEach(([type, p]) => {
+    [['jewel', b.pJ], ['sensor', b.pS]].forEach(([type, p]) => {
       if (p <= 0) return;
       const o = branch(type);
       if (o) out.push(Object.assign({ p }, o));
@@ -1505,7 +1551,7 @@ code { font-size: 0.9em; }
   const CS = 64;
   const ML = 28;
   const MT = 46;
-  const W = ML + RF.SIZE * CS + 52;
+  const W = ML + RF.SIZE * CS + 10;
   const H = MT + RF.SIZE * CS + 10;
   const cx = (i) => ML + RF.colOf(i) * CS;
   const cy = (i) => MT + RF.rowOf(i) * CS;
@@ -1513,7 +1559,7 @@ code { font-size: 0.9em; }
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const settings = { level: 'normal', speed: '600', reasoning: false };
+  const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight' };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
   } catch (e) { /* storage unavailable: defaults are fine */ }
@@ -1524,16 +1570,28 @@ code { font-size: 0.9em; }
 
   let rng = RF.makeRng(params.get('seed') || String(Date.now()));
 
+  // Two swap cost rules are being playtested (design doc Section 11).
+  const SWAP_RULES = {
+    insight: { swapCost: 3, swapScorePenalty: 0, swapsPerGame: 2, label: '3 Insight, max 2 per game' },
+    score: { swapCost: 0, swapScorePenalty: 1, swapsPerGame: 99, label: '−1 score each, no limit' },
+  };
+  if (SWAP_RULES[params.get('swap')]) settings.swapRule = params.get('swap');
+  function applySwapRule() {
+    const r = SWAP_RULES[settings.swapRule] || SWAP_RULES.insight;
+    RF.CONFIG.swapCost = r.swapCost;
+    RF.CONFIG.swapScorePenalty = r.swapScorePenalty;
+    RF.CONFIG.swapsPerGame = r.swapsPerGame;
+  }
+
   // --------------------------------------------------------------- state
 
   const ui = {
     phase: 'setup', // setup | play | over
     setup: null,
     state: null,
-    mode: null, // harden | segment | allow | ringfence | deploy
+    mode: null, // harden | segment | allow | ringfence | deploy | swap
     pending: [],
-    draft: null, // allow: { app, edges: Set } · ringfence: { app }
-    deployKind: 'sensor',
+    draft: null, // allow: { app, edges: Set } · ringfence: { app } · swap: { a, b }
     undo: [],
     log: [],
     recent: new Set(),
@@ -1544,7 +1602,7 @@ code { font-size: 0.9em; }
   };
 
   function newStats() {
-    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, sensorHits: 0, quarantines: 0, leaks: 0, zone: false, recons: 0, outages: 0 };
+    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
   }
 
   function newGame() {
@@ -1567,6 +1625,7 @@ code { font-size: 0.9em; }
   function startGame() {
     const err = RF.validateSetup(ui.setup);
     if (err) return toast(err);
+    applySwapRule();
     ui.state = RF.newGame(ui.setup, { rng });
     ui.phase = 'play';
     ui.selected = null;
@@ -1596,14 +1655,12 @@ code { font-size: 0.9em; }
       }
       if (ev.kind === 'sensor') st.sensorHits++;
       if (ev.kind === 'quarantine') st.quarantines++;
-      if (ev.kind === 'leak') st.leaks++;
       if (ev.kind === 'outage') st.outages++;
-      if (ev.kind === 'zone') st.zone = true;
       if (ev.kind === 'turn') {
         if (ui.state.turn === 'defender') addLog('sys', 'Round ' + ui.state.round);
         continue;
       }
-      const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'zone', 'end', 'outage', 'discover'].includes(ev.kind);
+      const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'end', 'outage', 'discover', 'swap'].includes(ev.kind);
       addLog(who, (who === 'A' && ev.kind === 'stone' ? 'Attacker: ' : '') + text, big);
     }
     return res;
@@ -1706,7 +1763,6 @@ code { font-size: 0.9em; }
     const items = [
       ['Assessed ' + st.assess + '×', 'Stage 1: Security Segmentation Assessment & Report. You can’t segment what you can’t see.'],
       ['Hardened ' + hardened + ' of 3 infrastructure services', 'Stage 2: Infrastructure Services segmentation for DNS, NTP and LDAP. It closes common C2 and exfiltration paths.'],
-      [(st.zone ? 'Sealed' : 'Did not seal') + ' the Dev/Prod boundary' + (st.leaks ? ', with ' + st.leaks + ' leakage alert' + (st.leaks > 1 ? 's' : '') : ''), 'Stage 3: Environment (zone) segmentation with leakage alerts.'],
       ['Published exceptions for ' + st.allow + ' app' + (st.allow === 1 ? '' : 's') + ', then ring-fenced ' + fenced.length + (fenced.length ? ' (' + fenced.join(', ') + ')' : ''),
         'Stage 4: Application microsegmentation. Security Intelligence recommends allow rules for the flows it observed; publish them, then lock down everything else.'],
       [st.outages ? 'Caused ' + st.outages + ' outage' + (st.outages > 1 ? 's' : '') + ' (−' + st.outages * RF.CONFIG.outagePenalty + ' score)' : 'Caused no outages',
@@ -1717,6 +1773,7 @@ code { font-size: 0.9em; }
         return [manual.length + ' manual exception' + (manual.length === 1 ? '' : 's') + (manual.length ? ', ' + needless + ' of them unnecessary' : ''),
           'Firewall Rule Analysis flags overly permissive rules like these. Every unneeded allow is a path an attacker can use.'];
       })(),
+      ['Swapped tokens ' + st.swap + '×', 'Deception: a secret swap turns everything the Attacker scouted back into a guess, at a price.'],
       ['Sensors caught the Attacker ' + st.sensorHits + '×', 'SSP threat prevention: distributed IDS/IPS inspects the traffic the firewall allows.'],
     ];
     $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
@@ -1764,7 +1821,20 @@ code { font-size: 0.9em; }
         ui.draft = { app: RF.REGION[c] };
         return render();
       case 'deploy':
-        return defenderDo({ type: 'deploy', cell: c, kind: ui.deployKind });
+        return defenderDo({ type: 'deploy', cell: c });
+      case 'swap': {
+        const t = s.tokens[c];
+        if (!t || t.faceUp) return toast('Pick a face-down token.');
+        const d = ui.draft || {};
+        if (d.a === c) { ui.draft = null; return render(); }
+        if (d.a == null || d.b != null) ui.draft = { a: c };
+        else {
+          const err = RF.swapError(s, d.a, c);
+          if (err) return toast(err);
+          ui.draft = { a: d.a, b: c };
+        }
+        return render();
+      }
       case 'segment':
         return toast('Tap an edge between two cells (the highlighted bars).');
       default:
@@ -1787,15 +1857,21 @@ code { font-size: 0.9em; }
   }
 
   function setupClick(c) {
-    if (RF.isInfra(c) || RF.APPS[RF.REGION[c]].zone !== 'prod') return toast('Tokens go in the Prod zone (apps F–L).');
+    if (RF.isInfra(c)) return toast('Tokens go on application cells, not infrastructure.');
     const app = RF.REGION[c];
     const existing = Object.keys(ui.setup).map(Number).find((k) => RF.REGION[k] === app);
     if (existing === c) {
-      ui.setup[c] = ui.setup[c] === 'jewel' ? 'sensor' : 'jewel';
+      // Cycle: Jewel → Sensor → removed.
+      if (ui.setup[c] === 'jewel') ui.setup[c] = 'sensor';
+      else delete ui.setup[c];
+    } else if (existing != null) {
+      ui.setup[c] = ui.setup[existing];
+      delete ui.setup[existing];
     } else {
-      const type = existing != null ? ui.setup[existing] : 'sensor';
-      if (existing != null) delete ui.setup[existing];
-      ui.setup[c] = type;
+      const n = Object.keys(ui.setup).length;
+      if (n >= RF.CONFIG.setupJewels + RF.CONFIG.setupSensors) return toast('All 6 tokens are placed. Tap one to remove it first.');
+      const jewels = Object.values(ui.setup).filter((t) => t === 'jewel').length;
+      ui.setup[c] = jewels < RF.CONFIG.setupJewels ? 'jewel' : 'sensor';
     }
     render();
   }
@@ -1839,12 +1915,18 @@ code { font-size: 0.9em; }
     const s = ui.state;
     const out = new Set();
     if (ui.phase === 'setup') {
-      for (let i = 0; i < RF.N; i++) if (!RF.isInfra(i) && RF.APPS[RF.REGION[i]].zone === 'prod') out.add(i);
+      for (let i = 0; i < RF.N; i++) if (!RF.isInfra(i)) out.add(i);
       return out;
     }
     if (!s || ui.busy || s.turn !== 'defender') return out;
     for (let i = 0; i < RF.N; i++) {
       if (ui.mode === 'harden' && RF.isInfra(i) && !s.hardened[i]) out.add(i);
+      if (ui.mode === 'swap') {
+        const t = s.tokens[i];
+        if (ui.draft && (ui.draft.a === i || ui.draft.b === i)) out.add(i);
+        else if (t && !t.faceUp && !RF.NEIGHBORS[i].some((n) => s.stones[n.cell]) && !(ui.draft && ui.draft.b != null)) out.add(i);
+        continue;
+      }
       if (ui.draft) {
         if (RF.REGION[i] === ui.draft.app) out.add(i);
         continue;
@@ -1897,17 +1979,14 @@ code { font-size: 0.9em; }
       }
     }
 
-    // Region borders (thin) and the zone boundary.
+    // Region borders.
     const borders = el('g', {}, svg);
     for (const key in RF.EDGES) {
       const e = RF.EDGES[key];
-      if (!e.border || e.zone) continue;
+      if (!e.border) continue;
       const [x1, y1, x2, y2] = edgeLine(e);
       el('line', { class: 'border', x1, y1, x2, y2 }, borders);
     }
-    el('line', { class: 'zone-line', x1: ML, y1: MT + 3 * CS, x2: ML + RF.SIZE * CS + 40, y2: MT + 3 * CS }, borders);
-    el('text', { class: 't-zone', x: ML + RF.SIZE * CS + 5, y: MT + 3 * CS - 5 }, borders).textContent = 'DEV ▲';
-    el('text', { class: 't-zone', x: ML + RF.SIZE * CS + 5, y: MT + 3 * CS + 12 }, borders).textContent = 'PROD ▼';
 
     // Ring-fences and walls.
     const walls = el('g', {}, svg);
@@ -2075,10 +2154,13 @@ code { font-size: 0.9em; }
       el('circle', { class: 'tok-sensor', cx: x, cy: y, r: 7.5 * k }, g);
       el('circle', { class: 'tok-sensor', cx: x, cy: y, r: 4 * k }, g);
       el('circle', { class: 'tok-sensor-dot', cx: x, cy: y, r: 1.8 * k }, g);
-    } else {
-      el('circle', { class: 'tok-decoy', cx: x, cy: y, r: 7 * k }, g);
     }
     if (t.recon && !t.faceUp) el('circle', { class: 'tok-seen', cx: x + r - 1, cy: y - r + 1, r: 4 }, g);
+    // The Attacker's current jewel odds for this token (public information).
+    if (ui.state && !t.faceUp && !hasStone) {
+      const odds = RF.attackerJewelOdds(ui.state)[c];
+      if (odds != null) el('text', { class: 't-odds', x, y: y + r + 9, 'text-anchor': 'middle' }, g).textContent = Math.round(odds * 100) + '%';
+    }
   }
 
   function cellTitle(i) {
@@ -2086,7 +2168,7 @@ code { font-size: 0.9em; }
     const s = ui.state;
     let t = RF.cellName(i) + ': ';
     if (RF.isInfra(i)) t += reg + ' (' + RF.INFRA[reg] + '), infrastructure service' + (s && s.hardened[i] ? ', HARDENED' : '');
-    else t += 'app ' + reg + ', ' + RF.APPS[reg].name + ' (' + RF.APPS[reg].zone.toUpperCase() + ')' + (s && s.fenced[reg] ? ', ring-fenced' : '');
+    else t += 'app ' + reg + ', ' + RF.APPS[reg].name + (RF.APPS[reg].internetFacing ? ' (internet-facing)' : '') + (s && s.fenced[reg] ? ', ring-fenced' : '');
     return t;
   }
 
@@ -2101,7 +2183,10 @@ code { font-size: 0.9em; }
     const t = s && s.tokens[i];
     if (t) {
       text += ' Token: ' + (t.faceUp ? 'revealed ' : 'face-down ') + t.type + '.';
-      if (!t.faceUp) text += t.recon ? ' The Attacker has scouted it.' : ' The Attacker doesn’t know what it is.';
+      if (!t.faceUp) {
+        const odds = Math.round(RF.attackerJewelOdds(s)[i] * 100);
+        text += t.recon ? ' The Attacker has scouted it and knows what it is.' : ' The Attacker thinks it is a jewel with ' + odds + '% odds.';
+      }
     }
     const other = (n) => RF.cellName(n.cell) + ' (' + (RF.APPS[RF.REGION[n.cell]] ? RF.APPS[RF.REGION[n.cell]].name : RF.REGION[n.cell]) + ')';
     const seen = RF.NEIGHBORS[i].filter((n) => s && s.discovered[n.key] && !s.allows[n.key]).map(other);
@@ -2158,7 +2243,8 @@ code { font-size: 0.9em; }
       meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
       '<div class="meter wide"><span>Flows observed <b>' + Object.keys(s.discovered).length + '</b></span><span>Outages <b' +
       (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>Walls <b>' + s.wallsLeft +
-      '</b></span><span>Sensors <b>' + s.pool.sensor + '</b></span><span>Decoys <b>' + s.pool.decoy +
+      '</b></span><span>Sensors <b>' + s.pool.sensor + '</b></span><span>Swaps left <b>' +
+      Math.max(0, Math.min(RF.CONFIG.swapsPerGame, 99) - s.swapsUsed) + (RF.CONFIG.swapsPerGame >= 99 ? '+' : '') +
       '</b></span><span>Jewels hidden <b>' + hiddenJewels + '</b></span></div>';
 
     // Action buttons.
@@ -2168,7 +2254,8 @@ code { font-size: 0.9em; }
       segment: s.insight >= RF.CONFIG.segmentCost && s.wallsLeft > 0 && RF.wallableEdges(s).length > 0,
       allow: true,
       ringfence: Object.keys(RF.APPS).some((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a)),
-      deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor + s.pool.decoy > 0,
+      deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0,
+      swap: !s.swappedThisTurn && s.swapsUsed < RF.CONFIG.swapsPerGame && s.insight >= RF.CONFIG.swapCost,
     };
     const active = myTurn && !ui.busy && ui.phase === 'play';
     document.querySelectorAll('#actions .act').forEach((b) => {
@@ -2237,11 +2324,19 @@ code { font-size: 0.9em; }
         (Object.keys(RF.APPS).filter((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a))
           .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
     } else if (ui.mode === 'deploy') {
-      html = 'Pick a token, then tap an empty cell. Only you know which kind it is.' +
-        '<div class="kind">' +
-        '<button class="btn' + (ui.deployKind === 'sensor' ? ' sel' : '') + '" data-hint="sensor" type="button"' + (s.pool.sensor ? '' : ' disabled') + '>Sensor (' + s.pool.sensor + ')</button>' +
-        '<button class="btn' + (ui.deployKind === 'decoy' ? ' sel' : '') + '" data-hint="decoy" type="button"' + (s.pool.decoy ? '' : ' disabled') + '>Decoy (' + s.pool.decoy + ')</button>' +
-        '</div>' + cancelBtn();
+      html = 'Tap an empty cell to place a face-down Sensor (' + s.pool.sensor + ' left). The Attacker sees you place it, so it knows it’s a Sensor, unless you later swap it.' + cancelBtn();
+    } else if (ui.mode === 'swap') {
+      const d = ui.draft || {};
+      const cost = [RF.CONFIG.swapCost ? RF.CONFIG.swapCost + ' Insight' : null, RF.CONFIG.swapScorePenalty ? '−' + RF.CONFIG.swapScorePenalty + ' score' : null].filter(Boolean).join(', ') || 'free';
+      if (d.b == null) {
+        html = '<b>Swap.</b> Tap two face-down tokens (not next to an attacker stone). You’ll then choose whether they really swap or you only pretend. The Attacker can’t tell, so its odds for both become the average. Cost: ' + cost + '.' + cancelBtn();
+      } else {
+        const ta = s.tokens[d.a];
+        const tb = s.tokens[d.b];
+        html = '<b>' + RF.cellName(d.a) + ' (' + ta.type + ') ⇄ ' + RF.cellName(d.b) + ' (' + tb.type + ')</b><br>Cost: ' + cost + '. Either way, the Attacker loses what it scouted on these two.' +
+          '<div class="row"><button class="btn primary" data-hint="swap-real" type="button">Really swap</button>' +
+          '<button class="btn" data-hint="swap-bluff" type="button">Bluff (don’t move)</button></div>' + cancelBtn();
+      }
     } else if (s.actionsLeft === 0) {
       html = 'No actions left. Tap <b>End turn</b>, or Undo to change your mind.';
     } else if (ui.selected != null) {
@@ -2250,7 +2345,6 @@ code { font-size: 0.9em; }
       html = 'Pick an action. Tap any cell to inspect it.';
     }
     hint.innerHTML = html;
-    if (ui.mode === 'deploy' && !s.pool[ui.deployKind]) ui.deployKind = s.pool.sensor ? 'sensor' : 'decoy';
   }
 
   const cancelBtn = () => '<div class="row"><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
@@ -2302,7 +2396,8 @@ code { font-size: 0.9em; }
       else if (h === 'publish') return publishAllow();
       else if (h === 'fence') return confirmFence();
       else if (h === 'commit' && ui.pending.length) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
-      else if (h === 'sensor' || h === 'decoy') ui.deployKind = h;
+      else if (h === 'swap-real' || h === 'swap-bluff')
+        return defenderDo({ type: 'swap', a: ui.draft.a, b: ui.draft.b, really: h === 'swap-real' });
       render();
     });
     $('btn-undo').addEventListener('click', undo);
@@ -2324,6 +2419,9 @@ code { font-size: 0.9em; }
     const level = $('set-level');
     const speed = $('set-speed');
     const reasoning = $('set-reasoning');
+    const swapRule = $('set-swap');
+    swapRule.value = settings.swapRule;
+    swapRule.addEventListener('change', () => { settings.swapRule = swapRule.value; saveSettings(); toast('Swap rule applies from your next game.'); });
     level.value = settings.level;
     speed.value = settings.speed;
     reasoning.checked = !!settings.reasoning;
@@ -2341,7 +2439,7 @@ code { font-size: 0.9em; }
         return render();
       }
       if (ui.phase !== 'play') return;
-      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'allow', 5: 'ringfence', 6: 'deploy' };
+      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'allow', 5: 'ringfence', 6: 'deploy', 7: 'swap' };
       if (map[e.key]) {
         const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
         if (b && !b.disabled) pickMode(map[e.key]);

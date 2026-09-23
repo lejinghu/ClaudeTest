@@ -79,10 +79,39 @@ function candidateResponses(s, canFence) {
   if (s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0) {
     for (let c = 0; c < RF.N; c++) {
       if (!RF.isInfra(c) && !s.stones[c] && !s.tokens[c] && RF.adjacentToStone(s, c))
-        out.push({ type: 'deploy', cell: c, kind: 'sensor' });
+        out.push({ type: 'deploy', cell: c });
+    }
+  }
+  return out.concat(swapCandidates(s));
+}
+
+// Real swaps of a jewel with a Sensor that the rules allow right now.
+function swapCandidates(s) {
+  const out = [];
+  const cells = Object.keys(s.tokens).map(Number).filter((c) => !s.tokens[c].faceUp);
+  for (const j of cells) {
+    if (s.tokens[j].type !== 'jewel') continue;
+    for (const k of cells) {
+      if (s.tokens[k].type === 'sensor' && !RF.swapError(s, j, k)) out.push({ type: 'swap', a: j, b: k, really: true });
     }
   }
   return out;
+}
+
+// Swap a jewel away when the Attacker has scouted it or is closing in on it,
+// if that makes the jewels clearly harder to reach.
+// eager: swap whenever it gains any distance and the Attacker is within 6.
+function swapIfWorthIt(s, T, eager) {
+  const scouted = Object.keys(s.tokens).some((c) => s.tokens[c].recon && s.tokens[c].type === 'jewel');
+  if (!scouted && T > (eager ? 6 : 5)) return null;
+  let best = null;
+  let bestT = eager ? T : T + 1; // normally must gain at least 2 actions of distance
+  for (const a of swapCandidates(s)) {
+    const c = tryAction(s, a);
+    const t = c ? threat(c) : -1;
+    if (t > bestT) { bestT = t; best = a; }
+  }
+  return best;
 }
 
 // patient: wait for one round of flow data before locking anything down.
@@ -92,6 +121,9 @@ function chooseAction(s, opts) {
   const canFence = !patient || s.round >= RF.CONFIG.flowSeenRound;
   if (s.actionsLeft <= 0) return { type: 'endTurn' };
   const T = threat(s);
+
+  const swap = swapIfWorthIt(s, T, opts.eagerSwap);
+  if (swap) return swap;
 
   if (T <= 4) {
     let best = null;
@@ -131,11 +163,6 @@ function chooseAction(s, opts) {
     RF.recommendedExceptions(s, app).length ? { type: 'allow', app } : { type: 'ringfence', app };
   if (affordable && jewelApps.has(affordable)) return lockDown(affordable);
 
-  if (!s.zoneSealed && s.insight >= RF.CONFIG.segmentCost) {
-    const open = RF.ZONE_EDGES.filter((k) => !RF.wallError(s, k));
-    if (open.length && open.length <= 4 && s.wallsLeft >= Math.min(2, open.length))
-      return { type: 'segment', edges: open.slice(0, 2) };
-  }
   if (affordable) return lockDown(affordable);
   return { type: 'assess' };
 }

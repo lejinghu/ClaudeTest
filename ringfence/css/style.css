@@ -17,7 +17,6 @@
   --zone: #ea580c;
   --jewel: #d97706;
   --sensor: #2563eb;
-  --decoy: #64748b;
   --hardened: #bfdbfe;
   --infra: #e2e8f0;
   --target: #f59e0b;
@@ -47,7 +46,6 @@
     --zone: #fb923c;
     --jewel: #fbbf24;
     --sensor: #60a5fa;
-    --decoy: #94a3b8;
     --hardened: #1e3a8a;
     --infra: #1f2937;
     --target: #fbbf24;
@@ -104,7 +102,6 @@ code { font-size: 0.9em; }
 .lg-flow { background: repeating-linear-gradient(90deg, var(--flow) 0 4px, transparent 4px 7px); height: 4px; }
 .lg-allow { background: var(--flow); }
 .lg-emergency { background: var(--zone); }
-.lg-zone { background: repeating-linear-gradient(90deg, var(--zone) 0 7px, transparent 7px 11px); }
 .lg-exit { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed var(--muted); }
 
 .panel { display: flex; flex-direction: column; gap: 12px; }
@@ -211,7 +208,6 @@ code { font-size: 0.9em; }
 .cell-hit.selected { stroke: var(--text); stroke-width: 2; stroke-dasharray: 4 3; }
 .cell-hit.recent { stroke: var(--recent); stroke-width: 2.5; }
 .border { stroke: var(--grid-strong); stroke-width: 1.6; stroke-linecap: square; }
-.zone-line { stroke: var(--zone); stroke-width: 3; stroke-dasharray: 9 6; }
 .fence { stroke: var(--fence); stroke-width: 6; stroke-linecap: round; }
 .wall { fill: var(--wall); }
 .wall.pending { fill: none; stroke: var(--wall); stroke-width: 2; stroke-dasharray: 4 3; }
@@ -233,7 +229,6 @@ code { font-size: 0.9em; }
 .t-infra { font-size: 11px; font-weight: 800; fill: var(--text); letter-spacing: 0.04em; }
 .t-axis { font-size: 12px; fill: var(--muted); font-weight: 600; }
 .t-internet { font-size: 11px; fill: var(--muted); letter-spacing: 0.4em; font-weight: 700; }
-.t-zone { font-size: 9px; fill: var(--zone); font-weight: 800; letter-spacing: 0.08em; }
 .internet-band { fill: var(--surface-2); }
 .globe { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .shield { fill: var(--wall); }
@@ -246,7 +241,7 @@ code { font-size: 0.9em; }
 .tok-jewel { fill: var(--jewel); }
 .tok-sensor { fill: none; stroke: var(--sensor); stroke-width: 1.8; }
 .tok-sensor-dot { fill: var(--sensor); }
-.tok-decoy { fill: none; stroke: var(--decoy); stroke-width: 1.6; stroke-dasharray: 2 2; }
+.t-odds { font-size: 9px; font-weight: 700; fill: var(--stone); }
 .tok-seen { fill: var(--stone); }
 .edge-hit { fill: transparent; cursor: pointer; }
 .edge-hit:hover { fill: color-mix(in srgb, var(--wall) 30%, transparent); }
@@ -262,3 +257,4 @@ code { font-size: 0.9em; }
   .board-wrap { padding: 4px; }
   .meter.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.lg-odds { width: auto; height: auto; background: none; color: var(--stone); font-size: 10px; font-weight: 700; }

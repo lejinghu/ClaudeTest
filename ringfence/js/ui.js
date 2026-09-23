@@ -14,7 +14,7 @@
   const CS = 64;
   const ML = 28;
   const MT = 46;
-  const W = ML + RF.SIZE * CS + 52;
+  const W = ML + RF.SIZE * CS + 10;
   const H = MT + RF.SIZE * CS + 10;
   const cx = (i) => ML + RF.colOf(i) * CS;
   const cy = (i) => MT + RF.rowOf(i) * CS;
@@ -22,7 +22,7 @@
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const settings = { level: 'normal', speed: '600', reasoning: false };
+  const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight' };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
   } catch (e) { /* storage unavailable: defaults are fine */ }
@@ -33,16 +33,28 @@
 
   let rng = RF.makeRng(params.get('seed') || String(Date.now()));
 
+  // Two swap cost rules are being playtested (design doc Section 11).
+  const SWAP_RULES = {
+    insight: { swapCost: 3, swapScorePenalty: 0, swapsPerGame: 2, label: '3 Insight, max 2 per game' },
+    score: { swapCost: 0, swapScorePenalty: 1, swapsPerGame: 99, label: '−1 score each, no limit' },
+  };
+  if (SWAP_RULES[params.get('swap')]) settings.swapRule = params.get('swap');
+  function applySwapRule() {
+    const r = SWAP_RULES[settings.swapRule] || SWAP_RULES.insight;
+    RF.CONFIG.swapCost = r.swapCost;
+    RF.CONFIG.swapScorePenalty = r.swapScorePenalty;
+    RF.CONFIG.swapsPerGame = r.swapsPerGame;
+  }
+
   // --------------------------------------------------------------- state
 
   const ui = {
     phase: 'setup', // setup | play | over
     setup: null,
     state: null,
-    mode: null, // harden | segment | allow | ringfence | deploy
+    mode: null, // harden | segment | allow | ringfence | deploy | swap
     pending: [],
-    draft: null, // allow: { app, edges: Set } · ringfence: { app }
-    deployKind: 'sensor',
+    draft: null, // allow: { app, edges: Set } · ringfence: { app } · swap: { a, b }
     undo: [],
     log: [],
     recent: new Set(),
@@ -53,7 +65,7 @@
   };
 
   function newStats() {
-    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, sensorHits: 0, quarantines: 0, leaks: 0, zone: false, recons: 0, outages: 0 };
+    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
   }
 
   function newGame() {
@@ -76,6 +88,7 @@
   function startGame() {
     const err = RF.validateSetup(ui.setup);
     if (err) return toast(err);
+    applySwapRule();
     ui.state = RF.newGame(ui.setup, { rng });
     ui.phase = 'play';
     ui.selected = null;
@@ -105,14 +118,12 @@
       }
       if (ev.kind === 'sensor') st.sensorHits++;
       if (ev.kind === 'quarantine') st.quarantines++;
-      if (ev.kind === 'leak') st.leaks++;
       if (ev.kind === 'outage') st.outages++;
-      if (ev.kind === 'zone') st.zone = true;
       if (ev.kind === 'turn') {
         if (ui.state.turn === 'defender') addLog('sys', 'Round ' + ui.state.round);
         continue;
       }
-      const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'zone', 'end', 'outage', 'discover'].includes(ev.kind);
+      const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'end', 'outage', 'discover', 'swap'].includes(ev.kind);
       addLog(who, (who === 'A' && ev.kind === 'stone' ? 'Attacker: ' : '') + text, big);
     }
     return res;
@@ -215,7 +226,6 @@
     const items = [
       ['Assessed ' + st.assess + '×', 'Stage 1: Security Segmentation Assessment & Report. You can’t segment what you can’t see.'],
       ['Hardened ' + hardened + ' of 3 infrastructure services', 'Stage 2: Infrastructure Services segmentation for DNS, NTP and LDAP. It closes common C2 and exfiltration paths.'],
-      [(st.zone ? 'Sealed' : 'Did not seal') + ' the Dev/Prod boundary' + (st.leaks ? ', with ' + st.leaks + ' leakage alert' + (st.leaks > 1 ? 's' : '') : ''), 'Stage 3: Environment (zone) segmentation with leakage alerts.'],
       ['Published exceptions for ' + st.allow + ' app' + (st.allow === 1 ? '' : 's') + ', then ring-fenced ' + fenced.length + (fenced.length ? ' (' + fenced.join(', ') + ')' : ''),
         'Stage 4: Application microsegmentation. Security Intelligence recommends allow rules for the flows it observed; publish them, then lock down everything else.'],
       [st.outages ? 'Caused ' + st.outages + ' outage' + (st.outages > 1 ? 's' : '') + ' (−' + st.outages * RF.CONFIG.outagePenalty + ' score)' : 'Caused no outages',
@@ -226,6 +236,7 @@
         return [manual.length + ' manual exception' + (manual.length === 1 ? '' : 's') + (manual.length ? ', ' + needless + ' of them unnecessary' : ''),
           'Firewall Rule Analysis flags overly permissive rules like these. Every unneeded allow is a path an attacker can use.'];
       })(),
+      ['Swapped tokens ' + st.swap + '×', 'Deception: a secret swap turns everything the Attacker scouted back into a guess, at a price.'],
       ['Sensors caught the Attacker ' + st.sensorHits + '×', 'SSP threat prevention: distributed IDS/IPS inspects the traffic the firewall allows.'],
     ];
     $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
@@ -273,7 +284,20 @@
         ui.draft = { app: RF.REGION[c] };
         return render();
       case 'deploy':
-        return defenderDo({ type: 'deploy', cell: c, kind: ui.deployKind });
+        return defenderDo({ type: 'deploy', cell: c });
+      case 'swap': {
+        const t = s.tokens[c];
+        if (!t || t.faceUp) return toast('Pick a face-down token.');
+        const d = ui.draft || {};
+        if (d.a === c) { ui.draft = null; return render(); }
+        if (d.a == null || d.b != null) ui.draft = { a: c };
+        else {
+          const err = RF.swapError(s, d.a, c);
+          if (err) return toast(err);
+          ui.draft = { a: d.a, b: c };
+        }
+        return render();
+      }
       case 'segment':
         return toast('Tap an edge between two cells (the highlighted bars).');
       default:
@@ -296,15 +320,21 @@
   }
 
   function setupClick(c) {
-    if (RF.isInfra(c) || RF.APPS[RF.REGION[c]].zone !== 'prod') return toast('Tokens go in the Prod zone (apps F–L).');
+    if (RF.isInfra(c)) return toast('Tokens go on application cells, not infrastructure.');
     const app = RF.REGION[c];
     const existing = Object.keys(ui.setup).map(Number).find((k) => RF.REGION[k] === app);
     if (existing === c) {
-      ui.setup[c] = ui.setup[c] === 'jewel' ? 'sensor' : 'jewel';
+      // Cycle: Jewel → Sensor → removed.
+      if (ui.setup[c] === 'jewel') ui.setup[c] = 'sensor';
+      else delete ui.setup[c];
+    } else if (existing != null) {
+      ui.setup[c] = ui.setup[existing];
+      delete ui.setup[existing];
     } else {
-      const type = existing != null ? ui.setup[existing] : 'sensor';
-      if (existing != null) delete ui.setup[existing];
-      ui.setup[c] = type;
+      const n = Object.keys(ui.setup).length;
+      if (n >= RF.CONFIG.setupJewels + RF.CONFIG.setupSensors) return toast('All 6 tokens are placed. Tap one to remove it first.');
+      const jewels = Object.values(ui.setup).filter((t) => t === 'jewel').length;
+      ui.setup[c] = jewels < RF.CONFIG.setupJewels ? 'jewel' : 'sensor';
     }
     render();
   }
@@ -348,12 +378,18 @@
     const s = ui.state;
     const out = new Set();
     if (ui.phase === 'setup') {
-      for (let i = 0; i < RF.N; i++) if (!RF.isInfra(i) && RF.APPS[RF.REGION[i]].zone === 'prod') out.add(i);
+      for (let i = 0; i < RF.N; i++) if (!RF.isInfra(i)) out.add(i);
       return out;
     }
     if (!s || ui.busy || s.turn !== 'defender') return out;
     for (let i = 0; i < RF.N; i++) {
       if (ui.mode === 'harden' && RF.isInfra(i) && !s.hardened[i]) out.add(i);
+      if (ui.mode === 'swap') {
+        const t = s.tokens[i];
+        if (ui.draft && (ui.draft.a === i || ui.draft.b === i)) out.add(i);
+        else if (t && !t.faceUp && !RF.NEIGHBORS[i].some((n) => s.stones[n.cell]) && !(ui.draft && ui.draft.b != null)) out.add(i);
+        continue;
+      }
       if (ui.draft) {
         if (RF.REGION[i] === ui.draft.app) out.add(i);
         continue;
@@ -406,17 +442,14 @@
       }
     }
 
-    // Region borders (thin) and the zone boundary.
+    // Region borders.
     const borders = el('g', {}, svg);
     for (const key in RF.EDGES) {
       const e = RF.EDGES[key];
-      if (!e.border || e.zone) continue;
+      if (!e.border) continue;
       const [x1, y1, x2, y2] = edgeLine(e);
       el('line', { class: 'border', x1, y1, x2, y2 }, borders);
     }
-    el('line', { class: 'zone-line', x1: ML, y1: MT + 3 * CS, x2: ML + RF.SIZE * CS + 40, y2: MT + 3 * CS }, borders);
-    el('text', { class: 't-zone', x: ML + RF.SIZE * CS + 5, y: MT + 3 * CS - 5 }, borders).textContent = 'DEV ▲';
-    el('text', { class: 't-zone', x: ML + RF.SIZE * CS + 5, y: MT + 3 * CS + 12 }, borders).textContent = 'PROD ▼';
 
     // Ring-fences and walls.
     const walls = el('g', {}, svg);
@@ -584,10 +617,13 @@
       el('circle', { class: 'tok-sensor', cx: x, cy: y, r: 7.5 * k }, g);
       el('circle', { class: 'tok-sensor', cx: x, cy: y, r: 4 * k }, g);
       el('circle', { class: 'tok-sensor-dot', cx: x, cy: y, r: 1.8 * k }, g);
-    } else {
-      el('circle', { class: 'tok-decoy', cx: x, cy: y, r: 7 * k }, g);
     }
     if (t.recon && !t.faceUp) el('circle', { class: 'tok-seen', cx: x + r - 1, cy: y - r + 1, r: 4 }, g);
+    // The Attacker's current jewel odds for this token (public information).
+    if (ui.state && !t.faceUp && !hasStone) {
+      const odds = RF.attackerJewelOdds(ui.state)[c];
+      if (odds != null) el('text', { class: 't-odds', x, y: y + r + 9, 'text-anchor': 'middle' }, g).textContent = Math.round(odds * 100) + '%';
+    }
   }
 
   function cellTitle(i) {
@@ -595,7 +631,7 @@
     const s = ui.state;
     let t = RF.cellName(i) + ': ';
     if (RF.isInfra(i)) t += reg + ' (' + RF.INFRA[reg] + '), infrastructure service' + (s && s.hardened[i] ? ', HARDENED' : '');
-    else t += 'app ' + reg + ', ' + RF.APPS[reg].name + ' (' + RF.APPS[reg].zone.toUpperCase() + ')' + (s && s.fenced[reg] ? ', ring-fenced' : '');
+    else t += 'app ' + reg + ', ' + RF.APPS[reg].name + (RF.APPS[reg].internetFacing ? ' (internet-facing)' : '') + (s && s.fenced[reg] ? ', ring-fenced' : '');
     return t;
   }
 
@@ -610,7 +646,10 @@
     const t = s && s.tokens[i];
     if (t) {
       text += ' Token: ' + (t.faceUp ? 'revealed ' : 'face-down ') + t.type + '.';
-      if (!t.faceUp) text += t.recon ? ' The Attacker has scouted it.' : ' The Attacker doesn’t know what it is.';
+      if (!t.faceUp) {
+        const odds = Math.round(RF.attackerJewelOdds(s)[i] * 100);
+        text += t.recon ? ' The Attacker has scouted it and knows what it is.' : ' The Attacker thinks it is a jewel with ' + odds + '% odds.';
+      }
     }
     const other = (n) => RF.cellName(n.cell) + ' (' + (RF.APPS[RF.REGION[n.cell]] ? RF.APPS[RF.REGION[n.cell]].name : RF.REGION[n.cell]) + ')';
     const seen = RF.NEIGHBORS[i].filter((n) => s && s.discovered[n.key] && !s.allows[n.key]).map(other);
@@ -667,7 +706,8 @@
       meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
       '<div class="meter wide"><span>Flows observed <b>' + Object.keys(s.discovered).length + '</b></span><span>Outages <b' +
       (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>Walls <b>' + s.wallsLeft +
-      '</b></span><span>Sensors <b>' + s.pool.sensor + '</b></span><span>Decoys <b>' + s.pool.decoy +
+      '</b></span><span>Sensors <b>' + s.pool.sensor + '</b></span><span>Swaps left <b>' +
+      Math.max(0, Math.min(RF.CONFIG.swapsPerGame, 99) - s.swapsUsed) + (RF.CONFIG.swapsPerGame >= 99 ? '+' : '') +
       '</b></span><span>Jewels hidden <b>' + hiddenJewels + '</b></span></div>';
 
     // Action buttons.
@@ -677,7 +717,8 @@
       segment: s.insight >= RF.CONFIG.segmentCost && s.wallsLeft > 0 && RF.wallableEdges(s).length > 0,
       allow: true,
       ringfence: Object.keys(RF.APPS).some((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a)),
-      deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor + s.pool.decoy > 0,
+      deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0,
+      swap: !s.swappedThisTurn && s.swapsUsed < RF.CONFIG.swapsPerGame && s.insight >= RF.CONFIG.swapCost,
     };
     const active = myTurn && !ui.busy && ui.phase === 'play';
     document.querySelectorAll('#actions .act').forEach((b) => {
@@ -746,11 +787,19 @@
         (Object.keys(RF.APPS).filter((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a))
           .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
     } else if (ui.mode === 'deploy') {
-      html = 'Pick a token, then tap an empty cell. Only you know which kind it is.' +
-        '<div class="kind">' +
-        '<button class="btn' + (ui.deployKind === 'sensor' ? ' sel' : '') + '" data-hint="sensor" type="button"' + (s.pool.sensor ? '' : ' disabled') + '>Sensor (' + s.pool.sensor + ')</button>' +
-        '<button class="btn' + (ui.deployKind === 'decoy' ? ' sel' : '') + '" data-hint="decoy" type="button"' + (s.pool.decoy ? '' : ' disabled') + '>Decoy (' + s.pool.decoy + ')</button>' +
-        '</div>' + cancelBtn();
+      html = 'Tap an empty cell to place a face-down Sensor (' + s.pool.sensor + ' left). The Attacker sees you place it, so it knows it’s a Sensor, unless you later swap it.' + cancelBtn();
+    } else if (ui.mode === 'swap') {
+      const d = ui.draft || {};
+      const cost = [RF.CONFIG.swapCost ? RF.CONFIG.swapCost + ' Insight' : null, RF.CONFIG.swapScorePenalty ? '−' + RF.CONFIG.swapScorePenalty + ' score' : null].filter(Boolean).join(', ') || 'free';
+      if (d.b == null) {
+        html = '<b>Swap.</b> Tap two face-down tokens (not next to an attacker stone). You’ll then choose whether they really swap or you only pretend. The Attacker can’t tell, so its odds for both become the average. Cost: ' + cost + '.' + cancelBtn();
+      } else {
+        const ta = s.tokens[d.a];
+        const tb = s.tokens[d.b];
+        html = '<b>' + RF.cellName(d.a) + ' (' + ta.type + ') ⇄ ' + RF.cellName(d.b) + ' (' + tb.type + ')</b><br>Cost: ' + cost + '. Either way, the Attacker loses what it scouted on these two.' +
+          '<div class="row"><button class="btn primary" data-hint="swap-real" type="button">Really swap</button>' +
+          '<button class="btn" data-hint="swap-bluff" type="button">Bluff (don’t move)</button></div>' + cancelBtn();
+      }
     } else if (s.actionsLeft === 0) {
       html = 'No actions left. Tap <b>End turn</b>, or Undo to change your mind.';
     } else if (ui.selected != null) {
@@ -759,7 +808,6 @@
       html = 'Pick an action. Tap any cell to inspect it.';
     }
     hint.innerHTML = html;
-    if (ui.mode === 'deploy' && !s.pool[ui.deployKind]) ui.deployKind = s.pool.sensor ? 'sensor' : 'decoy';
   }
 
   const cancelBtn = () => '<div class="row"><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
@@ -811,7 +859,8 @@
       else if (h === 'publish') return publishAllow();
       else if (h === 'fence') return confirmFence();
       else if (h === 'commit' && ui.pending.length) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
-      else if (h === 'sensor' || h === 'decoy') ui.deployKind = h;
+      else if (h === 'swap-real' || h === 'swap-bluff')
+        return defenderDo({ type: 'swap', a: ui.draft.a, b: ui.draft.b, really: h === 'swap-real' });
       render();
     });
     $('btn-undo').addEventListener('click', undo);
@@ -833,6 +882,9 @@
     const level = $('set-level');
     const speed = $('set-speed');
     const reasoning = $('set-reasoning');
+    const swapRule = $('set-swap');
+    swapRule.value = settings.swapRule;
+    swapRule.addEventListener('change', () => { settings.swapRule = swapRule.value; saveSettings(); toast('Swap rule applies from your next game.'); });
     level.value = settings.level;
     speed.value = settings.speed;
     reasoning.checked = !!settings.reasoning;
@@ -850,7 +902,7 @@
         return render();
       }
       if (ui.phase !== 'play') return;
-      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'allow', 5: 'ringfence', 6: 'deploy' };
+      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'allow', 5: 'ringfence', 6: 'deploy', 7: 'swap' };
       if (map[e.key]) {
         const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
         if (b && !b.disabled) pickMode(map[e.key]);

@@ -5,8 +5,9 @@
  * where face-down tokens are 'unknown' unless revealed or seen by Recon, and
  * reasons about them with probabilities:
  *
- *   - Setup tokens: jewels still unaccounted for / setup tokens still unknown.
- *   - Tokens deployed mid-game are never jewels; assume most are Sensors.
+ *   - Public odds from the rules engine (RF.attackerJewelOdds): Recon results,
+ *     Sensors deployed in plain sight, and swaps that may or may not have
+ *     happened (which average the two tokens' odds).
  *
  * Levels: Easy and Normal pick one action at a time by expected value
  * (Normal also scouts likely Sensors before stepping on them); Hard searches
@@ -40,30 +41,22 @@
     lostAction: 18, // value of each action lost when a Sensor ends the turn
     stone: 1, // small cost per stone, so it doesn't sprawl for nothing
     pass: 4, // penalty for ending the turn with actions left
-    deploySensorPrior: 0.6,
   };
 
   // --------------------------------------------------------------- beliefs
 
+  // Jewel/Sensor odds for every face-down token, from the public bookkeeping
+  // in the rules engine (Recon results, deploys, possible swaps).
   function beliefs(v) {
-    let setupUnknown = 0;
-    let jewelsKnown = v.jewelsTaken;
-    for (const c in v.tokens) {
-      const t = v.tokens[c];
-      if (t.origin !== 'setup') continue;
-      if (t.type === 'unknown') setupUnknown++;
-      else if (t.type === 'jewel') jewelsKnown++;
-    }
-    const jewelsLeft = Math.max(0, RF.CONFIG.setupJewels - jewelsKnown);
-    const pSetup = setupUnknown ? Math.min(1, jewelsLeft / setupUnknown) : 0;
+    const odds = RF.attackerJewelOdds(v);
     const bel = {};
     for (const c in v.tokens) {
       const t = v.tokens[c];
-      if (t.type === 'jewel') bel[c] = { pJ: 1, pS: 0, pD: 0 };
-      else if (t.type === 'sensor') bel[c] = { pJ: 0, pS: 1, pD: 0 };
-      else if (t.type === 'decoy') bel[c] = { pJ: 0, pS: 0, pD: 1 };
-      else if (t.origin === 'setup') bel[c] = { pJ: pSetup, pS: 1 - pSetup, pD: 0 };
-      else bel[c] = { pJ: 0, pS: W.deploySensorPrior, pD: 1 - W.deploySensorPrior };
+      let pJ;
+      if (t.faceUp || t.type === 'jewel') pJ = t.type === 'jewel' ? 1 : 0;
+      else if (t.type === 'sensor') pJ = 0;
+      else pJ = odds[c] || 0;
+      bel[c] = { pJ, pS: 1 - pJ };
     }
     return bel;
   }
@@ -180,7 +173,7 @@
     }
     const b = bel[a.cell];
     const out = [];
-    [['jewel', b.pJ], ['sensor', b.pS], ['decoy', b.pD]].forEach(([type, p]) => {
+    [['jewel', b.pJ], ['sensor', b.pS]].forEach(([type, p]) => {
       if (p <= 0) return;
       const o = branch(type);
       if (o) out.push(Object.assign({ p }, o));

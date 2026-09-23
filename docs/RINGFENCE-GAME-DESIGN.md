@@ -3,8 +3,23 @@
 *A two-player asymmetric strategy game about lateral movement and Zero Trust.
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
-Status: design draft v0.2. Rules are complete and playable on paper. Numbers
+Status: design draft v0.3. Rules are complete and playable on paper. Numbers
 are starting values for playtesting (Section 11).
+
+**What changed in v0.3 (simpler board, secret swaps).**
+- **No environments.** Simulation showed the Dev/Prod split hardly
+  mattered: 263 of 280 stolen jewels went out through the internet-facing
+  storefront, and the Attacker crossed the zone boundary about once every
+  three games. The zone line, zone sealing and leakage alerts are gone, and
+  tokens can go in any app. DFW Stage 3 (environments) is no longer modelled
+  in play.
+- **No Decoys.** At the same cost as a Sensor they were never the better
+  choice. And a cheaper Decoy would give the bluff away, because Insight is
+  public.
+- **Secret swap.** The Defender can swap two face-down tokens, or only
+  pretend to. The Attacker can't tell which, so its jewel odds for both
+  tokens average out and any Recon on them goes stale. It's deliberately
+  costly (Section 5.3).
 
 **What changed in v0.2 (hidden flows).** In v0.1, business flows were printed
 on the board and a ring-fence let them through automatically. Locking down
@@ -26,8 +41,8 @@ One player is the **Attacker**. They break in from the internet, spread
 sideways through the datacenter, find the crown jewels and get the data out.
 
 The other player is the **Defender**. They build visibility and use it to
-segment the network, following the four stages of **vDefend DFW 1-2-3-4**:
-assess, lock down infrastructure services, separate zones, then ring-fence
+segment the network, following **vDefend DFW 1-2-3-4**: assess, lock down
+infrastructure services, then ring-fence
 applications. The Security Services Platform (SSP) supplies the sensors that
 watch traffic the firewall has to allow.
 
@@ -66,7 +81,6 @@ following lessons through play:
 |---|---|---|
 | "I can't do anything without Insight." | Every enforcement action costs Insight, and only **Assess** produces it. | **Stage 1: Security Segmentation Assessment & Report.** You can't segment what you can't see. Security Intelligence comes first. |
 | "Harden the shared services on turn 1 or the Attacker hops straight into Prod." | Unhardened DNS/NTP/LDAP connect to one another and count as exfil exits. Hardening is cheap. | **Stage 2: Infrastructure Services Segmentation.** DNS, NTP and LDAP are auto-discovered and protected, which closes common C2 and exfiltration paths. A quick win with little disruption. |
-| "One Dev laptop shouldn't reach Prod." | Walls on the zone boundary are cheap. Sealing it scores +2 and raises leakage alerts. | **Stage 3: Environment (Zone) Segmentation.** Dev/Prod boundaries with continuous leakage alerting. |
 | "If I lock down before I've seen the traffic, I break production." | Business flows are hidden. Security Intelligence reveals everyday flows from round 2 and month-end flows in round 4. Blocking a real flow is an **outage**: −2 Score, plus an emergency allow rule the Attacker can use. | **Security Intelligence** observes flows over a monitoring window before recommending policy. Enforcing without that history breaks applications. |
 | "Exceptions first, then lock down." | **4a Allow** publishes the recommendation (allow rules for every observed flow) in one free action. **4b Ring-fence** then blocks everything else. Skipping 4a saves an action but risks outages. | **Stage 4: Application Microsegmentation.** Security Intelligence recommends groups, services and allow rules. You review, publish, and ring-fence the app with a default drop. |
 | "Placing walls one at a time is whack-a-mole. Ring-fencing wins." | **Ring-fence** blocks an app's whole border in one action and scores +3. Single walls cost more for the same coverage. | Application ring-fencing: allow required inter-app traffic, deny the rest. |
@@ -89,7 +103,7 @@ the player aid, so every game repeats the product's structure.
 - **Defender tokens**, all with the same back:
   - 3 Crown Jewel
   - 6 Sensor (3 used at setup, 3 left in the Deploy pool)
-  - 3 Decoy (Deploy pool only)
+- A **swap screen**, so the Defender can swap two tokens, or pretend to, without being seen
 - **Insight** chips, about 20
 - 19 **Flow cards**, one for each pair of neighbouring apps, each naming one
   shared edge and marked *everyday* or *month-end*. 11 are dealt face-down
@@ -106,13 +120,13 @@ the player aid, so every game repeats the product's structure.
                  I N T E R N E T
         a     b     c     d     e     f     g
      ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┐
-  1  │  A  │  A  │  B  │  B  │  B  │  C  │  C  │   DEV ZONE
+  1  │  A  │  A  │  B  │  B  │  B  │  C  │  C  │
      ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
   2  │  A  │  A  │  B  │ NTP │  B  │  C  │  C  │
      ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
   3  │  D  │  D  │  D  │  D  │  E  │  E  │  E  │
-     ╞═════╪═════╪═════╪═════╪═════╪═════╪═════╡   ← zone boundary
-  4  │  F  │ DNS │  G  │  G  │  G  │LDAP │ H*  │   PROD ZONE
+     ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
+  4  │  F  │ DNS │  G  │  G  │  G  │LDAP │ H*  │
      ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
   5  │  F  │  F  │  F  │  G  │  J  │ H*  │ H*  │
      ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
@@ -125,8 +139,6 @@ the player aid, so every game repeats the product's structure.
 
 ### Applications
 
-The **Dev zone** covers rows 1–3:
-
 | App | Cells | Flavor |
 |---|---|---|
 | A | a1 b1 a2 b2 | Developer desktops |
@@ -134,11 +146,6 @@ The **Dev zone** covers rows 1–3:
 | C | f1 g1 f2 g2 | Test harness |
 | D | a3 b3 c3 d3 | CI/CD pipeline |
 | E | e3 f3 g3 | Staging |
-
-The **Prod zone** covers rows 4–7:
-
-| App | Cells | Flavor |
-|---|---|---|
 | F | a4 a5 b5 c5 | HR system |
 | G | c4 d4 e4 d5 | Inventory |
 | H* | g4 f5 g5 g6 | Web storefront (internet-facing) |
@@ -161,7 +168,7 @@ different every game, and nobody sees them at the start. See Section 5.7.
 
 - **Edge**: the side shared by two orthogonally adjacent cells.
 - **Border edge**: an edge between two different regions. Each app, each
-  infrastructure cell and each zone counts as a region. Only border edges can
+  infrastructure cell counts as a region. Only border edges can
   take walls. Section 5.3 has one exception.
 - **Open edge**: an edge the Attacker can cross. Rules apply in this order,
   as in a real firewall policy: a **wall** blocks the edge; otherwise an
@@ -180,12 +187,13 @@ different every game, and nobody sees them at the start. See Section 5.7.
 
 ### 5.1 Setup
 
-1. The Defender secretly puts **one face-down token on one cell of each Prod
-   app**: 3 Crown Jewels and 3 Sensors, 6 tokens in all. Tokens can't go on
-   infrastructure cells.
+1. The Defender secretly places **3 Crown Jewels and 3 Sensors** face-down,
+   **each in a different app**. Tokens can't go on infrastructure cells. A
+   jewel on an exit (row 1 or H*) can be stolen in two actions, so most
+   players keep jewels deeper.
 2. The Defender takes **3 Insight**. The Score track starts at 0 and the
    round track at 1.
-3. The Deploy pool (3 Sensors, 3 Decoys) goes beside the Defender.
+3. The Deploy pool (3 Sensors) goes beside the Defender.
 
 ### 5.2 Turn structure
 
@@ -201,16 +209,13 @@ On a turn you take **3 actions**, in any order. You can repeat an action.
 | **3** | **SEGMENT** | 1 Insight | Place up to **2 walls** on border edges. Walls can split an attacker group. Observed flows can't be walled. Walling a flow you haven't observed yet causes an outage. |
 | **4a** | **ALLOW** | Free, +1 Insight per manual exception | Publish the Security Intelligence recommendation for one app: an allow rule on every *observed* flow on its border. You can also add **manual exceptions** on other border edges, for 1 Insight each. |
 | **4b** | **RING-FENCE** | Insight equal to the app's size (3–5) | Put a ring on the app. Every border edge without an allow rule is now blocked. **+3 Score.** |
-| ★ | **DEPLOY** | 1 Insight | Place a Sensor or Decoy from your pool face-down on any empty cell that has no token. This is the SSP / IDS/IPS action. |
+| ★ | **DEPLOY** | 1 Insight | Place a Sensor from your pool face-down on any empty cell that has no token. This is the SSP / IDS/IPS action. The Attacker sees it placed, so it knows it's a Sensor until a swap blurs it. |
+| ⇄ | **SWAP** | 3 Insight, max 2 per game *(playtest alternative: −1 Score each)* | Behind the screen, pick up two face-down tokens and put them back either swapped or not. Only you know which. Neither token may be next to an attacker stone. Once per turn. The Attacker's knowledge of both tokens resets: its jewel odds for each become the average of the two. |
 
 Additional Defender rules:
 
 - **Tier-level fine-tuning (Stage 4c).** Inside a ring-fenced app, SEGMENT
   can also put walls on edges *between cells of that app*.
-- **Leakage alerts.** Once every non-flow edge on the zone boundary is
-  walled, the Defender scores **+2** for a sealed zone. From then on, each
-  time an attacker stone crosses the zone boundary, the Defender gains **+1
-  Insight**.
 
 ### 5.4 Attacker actions
 
@@ -232,7 +237,6 @@ token over:
 - **Crown Jewel**: the stone stays. The Jewel can now be exfiltrated.
 - **Sensor** (IDS/IPS): remove the stone and discard the Sensor. **The
   Attacker's turn ends immediately.**
-- **Decoy**: discard the Decoy. The stone stays.
 
 ### 5.6 Quarantine (capture)
 
@@ -272,7 +276,8 @@ cell. Cells that have tokens do count as empty.
 ## 6. Worked example: the first five rounds
 
 *This example was written for v0.1, where the five flows below were printed
-on the board and could never be walled. It still shows the spatial ideas:
+on the board and could never be walled, and a Dev/Prod zone line ran between
+rows 3 and 4. It still shows the spatial ideas:
 hub hops, cutting groups, and forks. Read "business flow" as "a flow the
 Defender has allowed".*
 
@@ -359,7 +364,7 @@ shrink the attack surface, but allowed flows still need inspection.**
 ## 7. Where the depth comes from
 
 - **A two-sided race with interaction.** Nearly every Defender scoring action
-  (Harden, Ring-fence, sealing the zone) also blocks the Attacker. So
+  (Harden, Ring-fence) also blocks the Attacker. So
   "defend or score" is seldom a clean choice. The good question is which
   scoring move also defends against the current threat.
 - **Go-style connectivity.** A stolen jewel has to be *connected* to an exit.
@@ -369,9 +374,9 @@ shrink the attack surface, but allowed flows still need inspection.**
   another wall to cut.
 - **Asymmetric information.** The Defender knows where the jewels are, and
   the Attacker has to guess. RECON costs an action, and a Sensor ends the
-  whole turn, so every step into an unscouted token cell is a bet. DEPLOY
-  lets the Defender mix Sensors with Decoys, which makes bluffing a real
-  skill.
+  whole turn, so every step into an unscouted token cell is a bet. A secret
+  SWAP (real or bluffed) turns the Attacker's hard-won Recon back into a
+  coin flip, but at a real cost.
 - **Economy and tempo.** ASSESS feeds every other Defender action, like
   Netrunner's "click for a credit". Ring-fencing when you have exactly
   enough Insight, or holding Insight for a response, is the central
@@ -402,12 +407,12 @@ shrink the attack surface, but allowed flows still need inspection.**
 5. Put sensors where your exceptions land. Allowed flows are paths you
    can't wall. Emergency allows from outages are paths you never chose.
 6. Jewel placement is a bluff. Putting all three deep in K and L is
-   predictable. A jewel in G, near the zone boundary, is riskier and harder
-   to read.
+   predictable. Save swaps for when the Attacker has scouted a jewel or is
+   about to reach one. At 3 Insight, swapping casually loses games.
 
 **Attacker**
 
-1. Go wide early, before the zone is sealed. Every foothold you establish
+1. Go wide early, before the ring-fences go up. Every foothold you establish
    before the walls go up costs the Defender time.
 2. Use flows. They can't be walled, so the Defender has to spend Insight on
    sensors to cover them.
@@ -483,7 +488,6 @@ Use the same board. The Attacker needs **1 Jewel** and the Defender needs
 >
 > - **Assessed** → vDefend Security Intelligence: Segmentation Assessment & Report
 > - **Hardened DNS/NTP/LDAP** → DFW 1-2-3-4 Stage 2: Infrastructure Services
-> - **Sealed the zone** → Stage 3: Environment segmentation with leakage alerts
 > - **Ring-fenced apps** → Stage 4: Application microsegmentation
 > - **Deployed sensors on allowed flows** → Distributed IDS/IPS, Malware Prevention, NDR on SSP
 >
@@ -495,8 +499,9 @@ Use the same board. The Attacker needs **1 Jewel** and the Defender needs
 
 ### Starting values and the levers to adjust
 
-| Lever | v0.2 value | If the Attacker wins too often | If the Defender wins too often |
+| Lever | v0.3 value | If the Attacker wins too often | If the Defender wins too often |
 |---|---|---|---|
+| Swap cost | 3 Insight, max 2 per game | 2 Insight | 4 Insight or 1 per game |
 | Ring-fence score | +3 | +4 | +2 |
 | ALLOW cost (recommendation) | 0 Insight | 0 | 1 |
 | Outage penalty | −2 Score | −1 | −3 |
@@ -515,10 +520,14 @@ Use the same board. The Attacker needs **1 Jewel** and the Defender needs
 1. **H-rush.** The storefront is internet-facing and touches L, J and LDAP.
    Check that an Attacker who opens by breaching H and heading for Payments
    can't win by force. If they can, move L so it no longer touches H.
-2. **Mindless lockdown (found in v0.1 playtesting).** Ring-fencing every app
+2. **Defender-favoured after v0.3.** Removing environments helped the
+   Defender. With no swaps, a careful bot now loses 44% of games against
+   Hard (down from 57% in v0.2) and 29% against Normal. Candidate fixes:
+   score target 11, or ring-fence +2.
+3. **Mindless lockdown (found in v0.1 playtesting).** Ring-fencing every app
    as fast as possible was the dominant strategy. v0.2 fixes this with
    hidden flows and outages. Simulated evidence is below.
-3. **Slow turns.** Three actions with lookahead can make players think for a
+4. **Slow turns.** Three actions with lookahead can make players think for a
    long time. If turns run over about 90 seconds, consider 2 actions per
    turn for the Attacker and for the Quick Match format.
 
@@ -538,6 +547,33 @@ data, publishes exceptions, then ring-fences, and responds to threats.
 Under v0.1 rules the same careful bot faced a 30–38% attacker win rate. The
 v0.2 values in the table above were tuned (ALLOW free, ring-fence +3) to put
 a careful Defender near 50%.
+
+### Swap cost test (v0.3)
+
+These are 300 games per row against the AI Attacker, using the same seeds
+across rows. The careful bot swaps a real jewel with a Sensor. Two policies
+were tested: *selective* swaps only for a gain of 2 or more actions of
+distance, while the jewel is scouted or the Attacker is within 5. *Eager*
+swaps for any gain while the Attacker is within 6.
+
+| Swap rule | Policy | Swaps per game | Attacker wins vs Hard | vs Normal |
+|---|---|---|---|---|
+| No swapping | – | 0 | 43.7% | 28.7% |
+| 3 Insight, max 2 | selective | 0.30 | 40.3% | 25.3% |
+| 3 Insight, max 2 | eager | 0.76 | **47.0%** (worse than no swaps) | 31.0% |
+| −1 Score, no limit | selective | 0.35 | 38.7% | 23.7% |
+| −1 Score, no limit | eager | 0.87 | **34.7%** (best) | 21.3% |
+| −1 Score, max 2 | eager | 0.85 | 34.3% | 21.7% |
+
+At −1 Score, swapping whenever it helps is the best policy, so it becomes a
+routine move. At 3 Insight, careless swapping loses while selective
+swapping wins, so it stays a deliberate, costly decision. **3 Insight, max 2
+per game is the default.** The −1 Score rule can be chosen in the
+prototype's Settings (or with `?swap=score`) for side-by-side playtesting.
+The cap of 2 never came into play in these runs.
+
+With ±2.8 percentage points of noise at 300 games, only the eager rows
+differ clearly between the two rules.
 
 ### Plan
 

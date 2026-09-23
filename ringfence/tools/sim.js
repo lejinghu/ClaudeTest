@@ -7,6 +7,7 @@
  * --mindless swaps the Defender bot for one that ignores the Attacker and
  * just hardens and ring-fences whatever it can afford, from round 1.
  * --hasty keeps the normal bot but lets it lock down before any flow data.
+ * --eager-swap makes the bot swap a jewel whenever that gains any distance.
  *
  * Plays the scripted Defender bot against the attacker AI and prints win
  * rates, game length and action mix. --fuzz also plays random-vs-random
@@ -63,7 +64,7 @@ function playGame(seed, defenderPick, attackerPick) {
 
 const aiAttacker = (s, rng) => AI.chooseAction(s, { level, rng }).action;
 const botDefender = defenderKind === 'mindless' ? (s) => Bot.mindless(s)
-  : (s) => Bot.chooseAction(s, { patient: defenderKind === 'patient' });
+  : (s) => Bot.chooseAction(s, { patient: defenderKind === 'patient', eagerSwap: args.includes('--eager-swap') });
 
 function randomAttacker(s, rng) {
   const legal = RF.legalAttackerActions(s);
@@ -78,9 +79,12 @@ function randomDefender(s, rng) {
   Object.keys(RF.APPS).forEach((app) => {
     const border = RF.appBorderEdges(app);
     opts.push({ type: 'ringfence', app });
-    opts.push({ type: 'ringfence', app, allow: border.filter(() => rng() < 0.3) });
+    opts.push({ type: 'allow', app });
+    opts.push({ type: 'allow', app, edges: border.filter(() => rng() < 0.3) });
   });
-  opts.push({ type: 'deploy', cell: Math.floor(rng() * RF.N), kind: rng() < 0.5 ? 'sensor' : 'decoy' });
+  opts.push({ type: 'deploy', cell: Math.floor(rng() * RF.N) });
+  const tok = Object.keys(s.tokens).map(Number);
+  if (tok.length > 1) opts.push({ type: 'swap', a: tok[Math.floor(rng() * tok.length)], b: tok[Math.floor(rng() * tok.length)], really: rng() < 0.5 });
   const legal = opts.filter((a) => RF.act(RF.clone(s), a).ok);
   return legal[Math.floor(rng() * legal.length)];
 }
@@ -93,6 +97,7 @@ if (fuzz) {
 const t0 = Date.now();
 let attackerWins = 0;
 let outages = 0;
+let swaps = 0;
 const rounds = [];
 const reasons = {};
 const mix = {};
@@ -100,6 +105,7 @@ for (let i = 0; i < games; i++) {
   const { s, counts } = playGame('g' + i, botDefender, aiAttacker);
   if (s.winner === 'attacker') attackerWins++;
   outages += s.outages;
+  swaps += s.swapsUsed;
   rounds.push(Math.min(s.round, RF.CONFIG.roundLimit));
   const r = s.winner + ': ' + s.reason.replace(/\d+/g, 'N');
   reasons[r] = (reasons[r] || 0) + 1;
@@ -110,6 +116,7 @@ console.log(`${games} games, ${defenderKind} Defender vs ${level} AI Attacker ($
 console.log(`Attacker win rate: ${((100 * attackerWins) / games).toFixed(1)}%`);
 console.log(`Median round at game end: ${rounds[Math.floor(games / 2)]}`);
 console.log(`Outages per game: ${(outages / games).toFixed(2)}`);
+console.log(`Swaps per game: ${(swaps / games).toFixed(2)}`);
 console.log('Outcomes:');
 Object.entries(reasons).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => console.log(`  ${n.toString().padStart(4)}  ${k}`));
 console.log('Action mix:');

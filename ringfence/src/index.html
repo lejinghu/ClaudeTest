@@ -31,8 +31,8 @@
       <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
       <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
       <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
-      <li><span class="lg lg-zone"></span>Dev / Prod zone boundary</li>
       <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened infra)</li>
+      <li><span class="lg lg-odds">37%</span>Attacker’s jewel odds for a token</li>
     </ul>
   </section>
 
@@ -45,8 +45,8 @@
     <div id="meters" class="meters"></div>
 
     <div id="setup-panel" class="card" hidden>
-      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, one token in each Prod app (F, G, H, J, K, L). The Attacker can see where your tokens are, but not what they are.</p>
-      <p class="muted small">Tap a Prod cell to move that app’s token there. Tap a token to switch it between Jewel and Sensor.</p>
+      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, each in a different app. The Attacker can see where your tokens are, but not what they are.</p>
+      <p class="muted small">Tap a cell to place a token (Jewels first). Tap a token to turn a Jewel into a Sensor, or to remove a Sensor. Tap another cell in the same app to move its token there. Careful: a Jewel on row 1 or in the storefront H sits on an exit.</p>
       <p id="setup-msg" class="setup-msg"></p>
       <div class="row">
         <button id="btn-random" class="btn" type="button">Randomize</button>
@@ -61,7 +61,8 @@
         <button class="act" data-action="segment" type="button"><span class="num">3</span><span class="lbl">Segment</span><span class="cost">1 Insight · 2 walls</span></button>
         <button class="act" data-action="allow" type="button"><span class="num">4a</span><span class="lbl">Allow</span><span class="cost">Publish exceptions</span></button>
         <button class="act" data-action="ringfence" type="button"><span class="num">4b</span><span class="lbl">Ring-fence</span><span class="cost">Insight = app size</span></button>
-        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Deploy</span><span class="cost">1 Insight</span></button>
+        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Deploy</span><span class="cost">1 Insight · Sensor</span></button>
+        <button class="act" data-action="swap" type="button"><span class="num">⇄</span><span class="lbl">Swap</span><span class="cost">Secret, costly</span></button>
       </div>
       <div id="hint" class="hint"></div>
       <div class="row">
@@ -89,6 +90,12 @@
           <option value="1100">Slow</option>
           <option value="600">Normal</option>
           <option value="200">Fast</option>
+        </select>
+      </label>
+      <label>Swap cost rule (playtest)
+        <select id="set-swap">
+          <option value="insight">3 Insight, max 2 per game</option>
+          <option value="score">−1 score each, no limit</option>
         </select>
       </label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
@@ -128,10 +135,11 @@
     <ul class="rules-actions">
       <li><strong>1 Assess</strong>: +2 Insight. Insight pays for everything else. <em>Stage 1: Segmentation Assessment.</em></li>
       <li><strong>2 Harden</strong> an infrastructure service (NTP, DNS, LDAP) for 1 Insight. It evicts any stone there, closes the hub shortcut, and is no longer an exit. <strong>+1 score.</strong> <em>Stage 2: Infrastructure Services.</em></li>
-      <li><strong>3 Segment</strong>: place up to 2 walls on border edges for 1 Insight. Seal the Dev/Prod boundary for <strong>+2 score</strong> and leakage alerts. <em>Stage 3: Zones.</em></li>
+      <li><strong>3 Segment</strong>: place up to 2 walls on border edges (between apps, or next to infra) for 1 Insight. Good for cutting an attacker chain.</li>
       <li><strong>4a Allow</strong>: publish the Security Intelligence recommendation for an app. This adds allow rules (exceptions) for every flow observed on its border. It’s free; manual exceptions cost 1 Insight each. <em>Stage 4: recommendations.</em></li>
       <li><strong>4b Ring-fence</strong> an app for Insight equal to its size. Everything on its border that isn’t an exception is blocked. <strong>+3 score.</strong> Afterwards you can also wall edges inside it. <em>Stage 4: App microsegmentation.</em></li>
-      <li><strong>★ Deploy</strong> a face-down Sensor or Decoy on an empty cell for 1 Insight. <em>SSP: IDS/IPS inspects the traffic you allow.</em></li>
+      <li><strong>★ Deploy</strong> a face-down Sensor on an empty cell for 1 Insight. <em>SSP: IDS/IPS inspects the traffic you allow.</em></li>
+      <li><strong>⇄ Swap</strong> two face-down tokens, or only pretend to. The Attacker can’t tell, so everything it scouted on those two becomes a guess. It’s costly (3 Insight, max 2 per game, or −1 score with the other rule), once per turn, and not next to an attacker stone.</li>
     </ul>
     <p class="muted small">The real workflow: observe traffic → publish exceptions for valid flows → lock down everything else. Skip a step and you break production, or leave paths open.</p>
     <h3>The Attacker</h3>
@@ -143,10 +151,10 @@
     </ul>
     <h3>Tokens and capture</h3>
     <ul>
-      <li>A stone that enters a <strong>Jewel</strong> reveals it. A <strong>Sensor</strong> removes the stone and ends the Attacker’s turn. A <strong>Decoy</strong> does nothing.</li>
+      <li>A stone that enters a <strong>Jewel</strong> reveals it. A <strong>Sensor</strong> removes the stone and ends the Attacker’s turn. The red % under each token is the Attacker’s current jewel odds for it.</li>
       <li><strong>Quarantine</strong>: an attacker group with no open edge to an empty cell is removed. <strong>+1 score.</strong></li>
     </ul>
-    <p class="muted small">Shortcuts: 1–6 pick an action · Esc cancel · U undo · E end turn.</p>
+    <p class="muted small">Shortcuts: 1–7 pick an action · Esc cancel · U undo · E end turn.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>

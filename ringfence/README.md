@@ -9,6 +9,11 @@ Security Intelligence reveals them over time. Locking down an app follows
 the real workflow: observe traffic, publish exceptions (**4a Allow**), then
 ring-fence (**4b**). Blocking a flow you haven't allowed causes an outage.
 
+v0.3 removes the Dev/Prod environments and the Decoys. It adds a secret
+**⇄ Swap**: exchange two face-down tokens, or only pretend to. It costs
+3 Insight and is limited to 2 per game. The red % under each token shows the
+Attacker's current jewel odds for it.
+
 It's plain HTML, CSS and JS with no dependencies. `index.html` is **one
 self-contained file**, with the CSS and JS inlined, so it renders the same
 wherever it's opened: GitHub Pages, straight from disk, a file preview, or
@@ -24,6 +29,8 @@ as a single downloaded or attached file.
 
 ### Options
 
+- `?swap=score` switches to the alternative swap rule (−1 score each, no
+  limit) for playtesting. You can also change it in **Settings**.
 - `?seed=abc` replays the same random token setup and AI dice rolls.
 - `?ai=easy|normal|hard` sets the AI level. You can also change it in
   **Settings**.
@@ -32,7 +39,7 @@ as a single downloaded or attached file.
 
 ### Keyboard shortcuts
 
-`1`–`5` choose an action, `Esc` cancels, `U` undoes, `E` ends your turn.
+`1`–`7` choose an action, `Esc` cancels, `U` undoes, `E` ends your turn.
 
 ## Files
 
@@ -71,13 +78,20 @@ as a single downloaded or attached file.
     it values Recon for what it reveals and finds combinations such as
     "reveal a jewel, then exfiltrate".
 
-## Balance snapshot (v0.2)
+## Balance snapshot
+
+The swap cost comparison for v0.3 is in the design doc (Section 11). The v0.2
+numbers below show the observe → allow → ring-fence lesson. It still holds
+without environments: mindless lockdown loses 97% of games.
+
+### v0.2
 
 ```
 node ringfence/tools/sim.js 200 hard              # careful Defender bot
 node ringfence/tools/sim.js 200 hard --mindless   # ring-fence everything ASAP
 node ringfence/tools/sim.js 200 hard scoreTarget=9 allowCost=1   # try CONFIG changes
 node ringfence/tools/sim.js 20 --fuzz             # random games + invariant checks
+node ringfence/tools/sim.js 300 hard --eager-swap swapCost=0 swapScorePenalty=1 swapsPerGame=99
 ```
 
 Each row is 200 games. The number shown is the Attacker's win rate.

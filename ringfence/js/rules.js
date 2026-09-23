@@ -15,6 +15,11 @@
  * steps, as in the real workflow: publish allow rules (exceptions) for its
  * flows, then ring-fence it to block everything else. A real flow that ends
  * up blocked is an outage.
+ *
+ * v0.3: there are no environments (Dev/Prod) or Decoys. The Defender can
+ * secretly swap two face-down tokens, or pretend to. The Attacker's jewel
+ * odds for each token are public bookkeeping (token.ak), so an unseen swap
+ * blurs whatever Recon had learned.
  */
 (function (root, factory) {
   const RF = factory();
@@ -42,12 +47,15 @@
     walls: 12,
     stones: 20,
     deploySensors: 3,
-    deployDecoys: 3,
     setupJewels: 3,
+    setupSensors: 3,
     scoreHarden: 1,
     scoreRingfence: 3,
-    scoreZoneSealed: 2,
     scoreQuarantine: 1,
+    // Secret swap of two face-down tokens (design doc Section 5.3).
+    swapCost: 3, // Insight
+    swapScorePenalty: 0, // Score lost per swap (the "migration downtime" rule)
+    swapsPerGame: 2,
     // Hidden business flows (design doc Section 5.7).
     flowsPerGame: 11,
     rareFlowShare: 0.3,
@@ -70,24 +78,23 @@
   ];
 
   const APPS = {
-    A: { name: 'Developer desktops', zone: 'dev' },
-    B: { name: 'Build agents', zone: 'dev' },
-    C: { name: 'Test harness', zone: 'dev' },
-    D: { name: 'CI/CD pipeline', zone: 'dev' },
-    E: { name: 'Staging', zone: 'dev' },
-    F: { name: 'HR system', zone: 'prod' },
-    G: { name: 'Inventory', zone: 'prod' },
-    H: { name: 'Web storefront', zone: 'prod', internetFacing: true },
-    J: { name: 'App / API tier', zone: 'prod' },
-    K: { name: 'Customer database', zone: 'prod' },
-    L: { name: 'Payments', zone: 'prod' },
+    A: { name: 'Developer desktops' },
+    B: { name: 'Build agents' },
+    C: { name: 'Test harness' },
+    D: { name: 'CI/CD pipeline' },
+    E: { name: 'Staging' },
+    F: { name: 'HR system' },
+    G: { name: 'Inventory' },
+    H: { name: 'Web storefront', internetFacing: true },
+    J: { name: 'App / API tier' },
+    K: { name: 'Customer database' },
+    L: { name: 'Payments' },
   };
   const INFRA = {
     NTP: 'Time service',
     DNS: 'Name resolution',
     LDAP: 'Directory',
   };
-  const PROD_APPS = ['F', 'G', 'H', 'J', 'K', 'L'];
 
   // ---------------------------------------------------------------- geometry
 
@@ -100,7 +107,6 @@
   const cellIndex = (name) =>
     (parseInt(name.slice(1), 10) - 1) * SIZE + COLS.indexOf(name[0]);
   const isInfra = (i) => REGION[i] in INFRA;
-  const zoneOf = (i) => (rowOf(i) < 3 ? 'dev' : 'prod');
   const edgeKey = (a, b) => (a < b ? a + '-' + b : b + '-' + a);
 
   const APP_CELLS = {};
@@ -123,7 +129,6 @@
       // 'v' = the two cells sit side by side, so the edge is a vertical line.
       orient: rowOf(a) === rowOf(b) ? 'v' : 'h',
       border: REGION[a] !== REGION[b],
-      zone: rowOf(a) === 2 && rowOf(b) === 3,
     };
     NEIGHBORS[a].push({ cell: b, key });
     NEIGHBORS[b].push({ cell: a, key });
@@ -135,8 +140,6 @@
       if (r + 1 < SIZE) addEdge(i, i + SIZE);
     }
   }
-  const ZONE_EDGES = Object.values(EDGES).filter((e) => e.zone).map((e) => e.key);
-
   // Edges where two different applications touch: the only places a
   // business flow can run. Keyed by app pair, e.g. 'G|J'.
   const APP_PAIRS = {};
@@ -146,7 +149,7 @@
     (APP_PAIRS[pair] = APP_PAIRS[pair] || []).push(e.key);
   });
 
-  // Edges on an app's outer border (to another app, infra, or zone).
+  // Edges on an app's outer border (to another app or infra).
   function appBorderEdges(app) {
     return Object.values(EDGES)
       .filter((e) => e.border && (REGION[e.a] === app) !== (REGION[e.b] === app))
@@ -173,35 +176,38 @@
 
   // ---------------------------------------------------------------- setup
 
-  // Setup is a map { cellIndex: 'jewel' | 'sensor' }.
+  // Setup is a map { cellIndex: 'jewel' | 'sensor' }: 3 Jewels and 3 Sensors,
+  // each in a different application.
   function validateSetup(setup) {
     const cells = Object.keys(setup).map(Number);
     const perApp = {};
     let jewels = 0;
+    let sensors = 0;
     for (const c of cells) {
-      if (isInfra(c) || APPS[REGION[c]].zone !== 'prod')
-        return 'Tokens go on Prod application cells only.';
-      if (perApp[REGION[c]]) return 'Only one token per Prod app.';
+      if (isInfra(c)) return 'Tokens go on application cells, not infrastructure.';
+      if (perApp[REGION[c]]) return 'Only one token per app.';
       perApp[REGION[c]] = true;
       if (setup[c] === 'jewel') jewels++;
-      else if (setup[c] !== 'sensor') return 'Tokens must be Jewels or Sensors.';
+      else if (setup[c] === 'sensor') sensors++;
+      else return 'Tokens must be Jewels or Sensors.';
     }
-    const missing = PROD_APPS.filter((a) => !perApp[a]);
-    if (missing.length) return 'Place a token in app ' + missing.join(', ') + '.';
-    if (jewels !== CONFIG.setupJewels)
-      return 'Place exactly ' + CONFIG.setupJewels + ' Crown Jewels (you have ' + jewels + ').';
+    if (jewels !== CONFIG.setupJewels || sensors !== CONFIG.setupSensors)
+      return 'Place ' + CONFIG.setupJewels + ' Crown Jewels and ' + CONFIG.setupSensors + ' Sensors (you have ' +
+        jewels + ' and ' + sensors + ').';
     return null;
   }
 
+  // Random setup: jewels go in apps without an exit cell (a jewel on an exit
+  // can be stolen in two actions); sensors go anywhere else.
   function randomSetup(rng) {
     const setup = {};
-    const apps = PROD_APPS.slice();
-    shuffle(apps, rng);
-    apps.forEach((app, n) => {
-      const cells = APP_CELLS[app];
-      const cell = cells[Math.floor(rng() * cells.length)];
-      setup[cell] = n < CONFIG.setupJewels ? 'jewel' : 'sensor';
-    });
+    const hasExit = (app) => APPS[app].internetFacing || APP_CELLS[app].some((c) => rowOf(c) === 0);
+    const safe = shuffle(Object.keys(APPS).filter((a) => !hasExit(a)), rng);
+    const jewelApps = safe.slice(0, CONFIG.setupJewels);
+    const rest = shuffle(Object.keys(APPS).filter((a) => !jewelApps.includes(a)), rng).slice(0, CONFIG.setupSensors);
+    const pick = (app) => APP_CELLS[app][Math.floor(rng() * APP_CELLS[app].length)];
+    jewelApps.forEach((a) => (setup[pick(a)] = 'jewel'));
+    rest.forEach((a) => (setup[pick(a)] = 'sensor'));
     return setup;
   }
 
@@ -244,7 +250,9 @@
     if (err) throw new Error(err);
     const tokens = {};
     Object.keys(setup).forEach((c) => {
-      tokens[c] = { type: setup[c], origin: 'setup', faceUp: false, recon: false };
+      // ak: the Attacker's jewel odds for this token (public). null = use the
+      // prior spread over all setup tokens it knows nothing about.
+      tokens[c] = { type: setup[c], origin: 'setup', faceUp: false, recon: false, ak: null };
     });
     return {
       round: 1,
@@ -256,14 +264,14 @@
       jewelsTaken: 0,
       wallsLeft: CONFIG.walls,
       stonesLeft: CONFIG.stones,
-      pool: { sensor: CONFIG.deploySensors, decoy: CONFIG.deployDecoys },
-      deployGone: { sensor: 0, decoy: 0 },
+      pool: { sensor: CONFIG.deploySensors },
+      swapsUsed: 0,
+      swappedThisTurn: false,
       stones: new Array(N).fill(0),
       walls: {},
       hardened: {},
       fenced: {},
       tokens,
-      zoneSealed: false,
       winner: null,
       reason: '',
       flows: opts.flows || generateFlows(opts.rng || Math.random), // hidden truth
@@ -373,6 +381,44 @@
   }
 
   const ringfenceCost = (app) => APP_CELLS[app].length;
+
+  // The Attacker's chance that each face-down token is a Crown Jewel, from
+  // public information only: Recon results, what was deployed mid-game, and
+  // which tokens were (maybe) swapped. Tokens with no information share
+  // whatever jewel probability is left over.
+  function attackerJewelOdds(s) {
+    let remaining = CONFIG.setupJewels - s.jewelsTaken;
+    const unknown = [];
+    const odds = {};
+    for (const c in s.tokens) {
+      const t = s.tokens[c];
+      if (t.faceUp) {
+        if (t.type === 'jewel') remaining--;
+        continue;
+      }
+      if (t.ak == null) unknown.push(c);
+      else {
+        odds[c] = t.ak;
+        remaining -= t.ak;
+      }
+    }
+    const share = unknown.length ? Math.max(0, Math.min(1, remaining / unknown.length)) : 0;
+    unknown.forEach((c) => (odds[c] = share));
+    return odds;
+  }
+
+  function swapError(s, a, b) {
+    if (a === b) return 'Pick two different tokens.';
+    for (const c of [a, b]) {
+      const t = s.tokens[c];
+      if (!t || t.faceUp) return 'Swap needs two face-down tokens.';
+      if (NEIGHBORS[c].some((n) => s.stones[n.cell])) return 'Tokens next to an attacker stone can’t be moved.';
+    }
+    if (s.swappedThisTurn) return 'Only one swap per turn.';
+    if (s.swapsUsed >= CONFIG.swapsPerGame) return 'No swaps left this game.';
+    if (s.insight < CONFIG.swapCost) return 'Swapping costs ' + CONFIG.swapCost + ' Insight.';
+    return null;
+  }
 
   // Allow cost: 1, plus 1 per manual exception (one the recommendation didn't include).
   function allowCost(s, edges) {
@@ -495,17 +541,41 @@
       }
       case 'deploy': {
         const c = a.cell;
-        const kind = a.kind;
-        if (kind !== 'sensor' && kind !== 'decoy') return 'Deploy a Sensor or a Decoy.';
-        if (s.pool[kind] <= 0) return 'No ' + kind + 's left in your pool.';
+        if (s.pool.sensor <= 0) return 'No Sensors left in your pool.';
         if (s.insight < CONFIG.deployCost) return 'Not enough Insight.';
         if (isInfra(c)) return 'Tokens cannot go on infrastructure cells.';
         if (s.stones[c]) return 'That cell has an attacker stone on it.';
         if (s.tokens[c]) return 'That cell already has a token.';
         s.insight -= CONFIG.deployCost;
-        s.pool[kind]--;
-        s.tokens[c] = { type: kind, origin: 'deploy', faceUp: false, recon: false };
-        ev.push({ kind: 'deploy', cell: c, text: 'Deploy a face-down ' + kind + ' on ' + cellName(c) + '.' });
+        s.pool.sensor--;
+        // Placed in plain sight mid-game, so the Attacker knows it's a Sensor
+        // until a swap blurs it.
+        s.tokens[c] = { type: 'sensor', origin: 'deploy', faceUp: false, recon: false, ak: 0 };
+        ev.push({ kind: 'deploy', cell: c, text: 'Deploy a face-down Sensor on ' + cellName(c) + '.' });
+        break;
+      }
+      case 'swap': {
+        const err = swapError(s, a.a, a.b);
+        if (err) return err;
+        const odds = attackerJewelOdds(s);
+        const mixed = (odds[a.a] + odds[a.b]) / 2;
+        s.insight -= CONFIG.swapCost;
+        s.score -= CONFIG.swapScorePenalty;
+        s.swapsUsed++;
+        s.swappedThisTurn = true;
+        if (a.really) [s.tokens[a.a], s.tokens[a.b]] = [s.tokens[a.b], s.tokens[a.a]];
+        [s.tokens[a.a], s.tokens[a.b]].forEach((t) => {
+          t.recon = false;
+          t.ak = mixed;
+        });
+        const costs = [];
+        if (CONFIG.swapCost) costs.push(CONFIG.swapCost + ' Insight');
+        if (CONFIG.swapScorePenalty) costs.push('−' + CONFIG.swapScorePenalty + ' score');
+        ev.push({
+          kind: 'swap', cells: [a.a, a.b], really: !!a.really,
+          text: 'Swap: shuffled the tokens on ' + cellName(a.a) + ' and ' + cellName(a.b) +
+            (a.really ? ' (they really swapped)' : ' (a bluff: nothing moved)') + (costs.length ? ', ' + costs.join(', ') : '') + '.',
+        });
         break;
       }
       default:
@@ -579,11 +649,6 @@
         });
       }
     }
-    if (!s.zoneSealed && ZONE_EDGES.every((k) => !isOpen(s, k) || s.allows[k])) {
-      s.zoneSealed = true;
-      s.score += CONFIG.scoreZoneSealed;
-      ev.push({ kind: 'zone', text: 'Dev/Prod zone boundary sealed (+' + CONFIG.scoreZoneSealed + ' score). Leakage alerts are on.' });
-    }
   }
 
   function attackerAction(s, a, ev) {
@@ -601,17 +666,12 @@
         if (!canEnter(s, c)) return 'That cell cannot be entered.';
         if (!adjacentToStone(s, c)) return 'Spread needs an open edge from one of your stones.';
         if (s.stonesLeft <= 0) return 'No stones left.';
-        const leaked = s.zoneSealed && crossesZone(s, c);
         const viaFlow = NEIGHBORS[c].some((n) => s.stones[n.cell] && s.allows[n.key]);
         const viaHub = isInfra(c) && INFRA_CELLS.some((k) => k !== c && s.stones[k] && !s.hardened[k]);
         let how = '';
         if (viaHub && !NEIGHBORS[c].some((n) => s.stones[n.cell] && isOpen(s, n.key))) how = ' (hub hop)';
         else if (viaFlow) how = ' (through an allowed flow)';
         placeStone(s, c, ev, 'Spread to ' + cellName(c) + how + '.');
-        if (leaked) {
-          s.insight += 1;
-          ev.push({ kind: 'leak', cell: c, text: 'Leakage alert: attacker crossed the zone boundary. Defender +1 Insight.' });
-        }
         break;
       }
       case 'recon': {
@@ -619,6 +679,7 @@
         if (!t || t.faceUp) return 'Recon needs a face-down token.';
         if (!adjacentToStone(s, c)) return 'Recon needs an open edge from one of your stones.';
         t.recon = true;
+        t.ak = t.type === 'jewel' ? 1 : 0;
         ev.push({ kind: 'recon', cell: c, text: 'Recon on ' + cellName(c) + '.' });
         break;
       }
@@ -644,12 +705,6 @@
     return null;
   }
 
-  function crossesZone(s, c) {
-    const z = zoneOf(c);
-    const from = attackerNeighbors(s, c).filter((j) => s.stones[j]);
-    return from.length > 0 && from.every((j) => zoneOf(j) !== z);
-  }
-
   function placeStone(s, c, ev, text) {
     s.stones[c] = 1;
     s.stonesLeft--;
@@ -662,14 +717,9 @@
     } else if (t.type === 'sensor') {
       s.stones[c] = 0;
       s.stonesLeft++;
-      if (t.origin === 'deploy' && s.deployGone) s.deployGone.sensor++;
       delete s.tokens[c];
       s.actionsLeft = 1; // the caller's decrement takes it to 0
       ev.push({ kind: 'sensor', cell: c, text: 'SENSOR on ' + cellName(c) + ' triggered: stone removed, Attacker’s turn ends.' });
-    } else if (t.type === 'decoy') {
-      if (t.origin === 'deploy' && s.deployGone) s.deployGone.decoy++;
-      delete s.tokens[c];
-      ev.push({ kind: 'decoy', cell: c, text: 'Decoy on ' + cellName(c) + ' discarded.' });
     }
   }
 
@@ -683,6 +733,7 @@
       }
       s.turn = 'attacker';
       s.breachUsed = false;
+      s.swappedThisTurn = false;
     } else {
       s.round++;
       if (s.round > CONFIG.roundLimit) {
@@ -722,15 +773,13 @@
   }
 
   // What the Attacker is allowed to know: face-down token types are hidden
-  // unless revealed or seen by Recon, and so is the pool's Sensor/Decoy split.
+  // unless revealed or seen by Recon (and not swapped since). token.ak holds
+  // its public jewel odds.
   function attackerView(s) {
     const v = clone(s);
     Object.values(v.tokens).forEach((t) => {
       if (!t.faceUp && !t.recon) t.type = 'unknown';
     });
-    v.poolTotal = v.pool.sensor + v.pool.decoy;
-    delete v.pool;
-    delete v.deployGone;
     // The Defender's flow data is theirs alone. Allow rules on the board are public.
     v.flows = {};
     v.discovered = {};
@@ -738,9 +787,9 @@
   }
 
   return {
-    SIZE, N, CONFIG, LAYOUT, APPS, INFRA, PROD_APPS, REGION, EDGES, NEIGHBORS,
-    APP_CELLS, INFRA_CELLS, ZONE_EDGES, APP_PAIRS,
-    rowOf, colOf, cellName, cellIndex, isInfra, zoneOf, edgeKey,
+    SIZE, N, CONFIG, LAYOUT, APPS, INFRA, REGION, EDGES, NEIGHBORS,
+    APP_CELLS, INFRA_CELLS, APP_PAIRS,
+    rowOf, colOf, cellName, cellIndex, isInfra, edgeKey, attackerJewelOdds, swapError,
     makeRng, shuffle, validateSetup, randomSetup, generateFlows, newGame, clone,
     appBorderEdges, recommendedExceptions, isFlowActive, allowCost,
     isOpen, attackerNeighbors, canEnter, isExit, isBreachable, groupOf, allGroups,
