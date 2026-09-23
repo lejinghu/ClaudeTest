@@ -4,9 +4,10 @@ A playable browser prototype of the RINGFENCE design
 ([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md)). You
 play the **Defender** and an AI plays the **Attacker**.
 
-It's plain HTML, CSS and JS with no build step and no dependencies. It uses
-classic scripts, not ES modules, so it also works when you open
-`index.html` straight from disk in any browser.
+It's plain HTML, CSS and JS with no dependencies. `index.html` is **one
+self-contained file**, with the CSS and JS inlined, so it renders the same
+wherever it's opened: GitHub Pages, straight from disk, a file preview, or
+as a single downloaded or attached file.
 
 ## Play it
 
@@ -32,9 +33,13 @@ classic scripts, not ES modules, so it also works when you open
 
 | File | What it does |
 |---|---|
+| `index.html` | **Generated** by `tools/build.js`, so don't edit it. It's the playable page with everything inlined. |
+| `src/index.html` | The page template. Open it directly while developing: it loads `../css` and `../js` live. |
+| `css/style.css` | Styles. |
 | `js/rules.js` | Rules engine: board data, legality, turn flow, scoring, quarantine, win checks. It has no DOM code and runs in both the browser and Node. |
 | `js/ai.js` | Attacker AI (see below). |
 | `js/ui.js` | SVG board, input handling, event log, undo, end-of-game debrief. |
+| `tools/build.js` | Inlines `css/` and `js/` into `index.html`. Run it after any change; `--check` reports whether `index.html` is stale. The Pages workflow also runs it before deploying. |
 | `tools/sim.js` | Headless simulator for balance numbers, plus an invariant fuzzer. |
 | `tools/defender-bot.js` | A simple scripted Defender, used only by the simulator. |
 

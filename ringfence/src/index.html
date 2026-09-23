@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>RINGFENCE</title>
+<meta name="description" content="RINGFENCE prototype: defend a datacenter against an AI attacker using the DFW 1-2-3-4 segmentation stages." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f172a'/%3E%3Ccircle cx='16' cy='16' r='9.5' fill='none' stroke='%232dd4bf' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23ef4444'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <h1>RINGFENCE</h1>
+    <span class="badge">prototype</span>
+  </div>
+  <nav class="top-actions">
+    <button id="btn-rules" class="btn ghost" type="button">Rules</button>
+    <button id="btn-new" class="btn ghost" type="button">New game</button>
+  </nav>
+</header>
+
+<main class="layout">
+  <section class="board-wrap" aria-label="Game board">
+    <svg id="board" role="img" aria-label="Datacenter board"></svg>
+    <ul class="legend" aria-label="Legend">
+      <li><span class="lg lg-stone"></span>Attacker stone</li>
+      <li><span class="lg lg-wall"></span>Wall</li>
+      <li><span class="lg lg-fence"></span>Ring-fence</li>
+      <li><span class="lg lg-flow"></span>Business flow (can’t be walled)</li>
+      <li><span class="lg lg-zone"></span>Dev / Prod zone boundary</li>
+      <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened infra)</li>
+    </ul>
+  </section>
+
+  <aside class="panel">
+    <div class="status-card">
+      <div id="status" class="status" aria-live="polite"></div>
+      <div id="pips" class="pips" aria-label="Actions left"></div>
+    </div>
+
+    <div id="meters" class="meters"></div>
+
+    <div id="setup-panel" class="card" hidden>
+      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, one token in each Prod app (F, G, H, J, K, L). The Attacker can see where your tokens are, but not what they are.</p>
+      <p class="muted small">Tap a Prod cell to move that app’s token there. Tap a token to switch it between Jewel and Sensor.</p>
+      <p id="setup-msg" class="setup-msg"></p>
+      <div class="row">
+        <button id="btn-random" class="btn" type="button">Randomize</button>
+        <button id="btn-start" class="btn primary" type="button">Start game</button>
+      </div>
+    </div>
+
+    <div id="action-panel" class="card" hidden>
+      <div class="actions" id="actions">
+        <button class="act" data-action="assess" type="button"><span class="num">1</span><span class="lbl">Assess</span><span class="cost">+2 Insight</span></button>
+        <button class="act" data-action="harden" type="button"><span class="num">2</span><span class="lbl">Harden</span><span class="cost">1 Insight</span></button>
+        <button class="act" data-action="segment" type="button"><span class="num">3</span><span class="lbl">Segment</span><span class="cost">1 Insight · 2 walls</span></button>
+        <button class="act" data-action="ringfence" type="button"><span class="num">4</span><span class="lbl">Ring-fence</span><span class="cost">Insight = app size</span></button>
+        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Deploy</span><span class="cost">1 Insight</span></button>
+      </div>
+      <div id="hint" class="hint"></div>
+      <div class="row">
+        <button id="btn-undo" class="btn" type="button">Undo</button>
+        <button id="btn-end" class="btn primary" type="button">End turn</button>
+      </div>
+    </div>
+
+    <div class="card log-card">
+      <h2>Event log</h2>
+      <ol id="log" class="log"></ol>
+    </div>
+
+    <details class="card settings">
+      <summary>Settings</summary>
+      <label>Attacker AI
+        <select id="set-level">
+          <option value="easy">Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+      <label>AI speed
+        <select id="set-speed">
+          <option value="1100">Slow</option>
+          <option value="600">Normal</option>
+          <option value="200">Fast</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
+      <p class="muted small">Add <code>?seed=abc</code> to the URL to replay the same random setup and AI rolls.</p>
+    </details>
+
+    <p class="footnote muted small">Playtest prototype. vDefend is a trademark of Broadcom. Rules: <code>docs/RINGFENCE-GAME-DESIGN.md</code>.</p>
+  </aside>
+</main>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<div id="overlay-end" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="end-title">
+    <h2 id="end-title"></h2>
+    <p id="end-reason"></p>
+    <div id="end-debrief"></div>
+    <div class="row">
+      <button id="btn-review" class="btn" type="button">Review board</button>
+      <button id="btn-again" class="btn primary" type="button">Play again</button>
+    </div>
+  </div>
+</div>
+
+<div id="overlay-rules" class="overlay" hidden>
+  <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+    <h2 id="rules-title">How to play</h2>
+    <p>You are the <strong>Defender</strong>. The AI is the <strong>Attacker</strong>. Each round you take 3 actions, then the Attacker takes 3.</p>
+    <ul>
+      <li><strong>You win</strong> at the end of your turn with a <strong>Segmentation Score of 10</strong>, or if round 12 ends.</li>
+      <li><strong>The Attacker wins</strong> by exfiltrating <strong>2 Crown Jewels</strong>.</li>
+    </ul>
+    <h3>Your actions: DFW 1-2-3-4, plus SSP</h3>
+    <ol class="rules-actions">
+      <li><strong>Assess</strong>: +2 Insight. Insight pays for everything else. <em>Stage 1: Segmentation Assessment.</em></li>
+      <li><strong>Harden</strong> an infrastructure service (NTP, DNS, LDAP) for 1 Insight. It evicts any stone there, closes the hub shortcut, and is no longer an exit. <strong>+1 score.</strong> <em>Stage 2: Infrastructure Services.</em></li>
+      <li><strong>Segment</strong>: place up to 2 walls on border edges (between apps, infra or zones) for 1 Insight. Seal every Dev/Prod boundary edge for <strong>+2 score</strong> and leakage alerts. <em>Stage 3: Zones.</em></li>
+      <li><strong>Ring-fence</strong> an app for Insight equal to its size. Its whole border is blocked, except business flows. <strong>+2 score.</strong> After that you can also wall edges inside it. <em>Stage 4: App microsegmentation.</em></li>
+      <li value="5"><strong>★ Deploy</strong> a face-down Sensor or Decoy on an empty cell for 1 Insight. <em>SSP: IDS/IPS on allowed traffic.</em></li>
+    </ol>
+    <h3>The Attacker</h3>
+    <ul>
+      <li><strong>Breach</strong> (once per turn): place a stone on row 1 or the internet-facing storefront H.</li>
+      <li><strong>Spread</strong>: place a stone next to one of theirs across an open edge. Business flows are always open. Unhardened NTP, DNS and LDAP all connect to each other (the hub).</li>
+      <li><strong>Recon</strong>: secretly look at a face-down token next to one of their stones.</li>
+      <li><strong>Exfil</strong>: take a revealed Jewel whose stone is connected to an <em>exit</em>: row 1, storefront H, or unhardened infra.</li>
+    </ul>
+    <h3>Tokens and capture</h3>
+    <ul>
+      <li>A stone that enters a <strong>Jewel</strong> reveals it. A <strong>Sensor</strong> removes the stone and ends the Attacker’s turn. A <strong>Decoy</strong> does nothing.</li>
+      <li><strong>Quarantine</strong>: an attacker group with no open edge to an empty cell is removed. <strong>+1 score.</strong></li>
+    </ul>
+    <p class="muted small">Shortcuts: 1–5 pick an action · Esc cancel · U undo · E end turn.</p>
+    <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
+  </div>
+</div>
+
+<script src="../js/rules.js"></script>
+<script src="../js/ai.js"></script>
+<script src="../js/ui.js"></script>
+</body>
+</html>

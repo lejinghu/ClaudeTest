@@ -25,6 +25,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build self-contained RINGFENCE page
+        run: node ringfence/tools/build.js
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 

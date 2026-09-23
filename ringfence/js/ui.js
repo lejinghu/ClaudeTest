@@ -1,6 +1,7 @@
 /*
  * RINGFENCE browser UI: human Defender vs AI Attacker.
  * Renders the board as inline SVG and drives turns through RF.act().
+ * After editing, rebuild the standalone page: node ringfence/tools/build.js
  */
 (function () {
   'use strict';
