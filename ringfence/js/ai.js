@@ -1,0 +1,313 @@
+/*
+ * RINGFENCE attacker AI.
+ *
+ * The AI never reads hidden information. It works on RF.attackerView(state),
+ * where face-down tokens are 'unknown' unless revealed or seen by Recon, and
+ * reasons about them with probabilities:
+ *
+ *   - Setup tokens: jewels still unaccounted for / setup tokens still unknown.
+ *   - Tokens deployed mid-game are never jewels; assume most are Sensors.
+ *
+ * Levels: Easy and Normal pick one action at a time by expected value
+ * (Normal also scouts likely Sensors before stepping on them); Hard searches
+ * two actions ahead within its turn. The evaluation asks,
+ * for every possible jewel, "how many stones would I still need to place to
+ * sit on it with a connected route to an exit?" (a node-weighted shortest
+ * path where my own stones are free and unknown tokens carry sensor risk),
+ * and "how bad does that get if the Defender cuts the weakest link?".
+ */
+(function (root, factory) {
+  const AI = factory(root.RF || (typeof require === 'function' ? require('./rules.js') : null));
+  if (typeof module === 'object' && module.exports) module.exports = AI;
+  else root.RFAI = AI;
+})(typeof self !== 'undefined' ? self : this, function (RF) {
+  'use strict';
+
+  const INF = 1e9;
+
+  const LEVELS = {
+    easy: { noise: 30, robust: false, recon: false, reconThreshold: 1, depth: 1 },
+    normal: { noise: 1.5, robust: true, recon: true, reconThreshold: 0.3, depth: 1 },
+    // Hard searches two actions ahead within its turn (expectimax over what
+    // a face-down token might be), so Recon is valued for what it reveals.
+    hard: { noise: 0.5, robust: true, recon: false, reconThreshold: 1, depth: 2, beam: 6 },
+  };
+
+  const W = {
+    near: 300, // value of a sure jewel at distance 0, scaled by 1/(1+d)
+    robust: 150, // same, for the distance after the Defender's best single cut
+    sensorRisk: 3, // extra "actions" an unknown-but-certain sensor costs on a path
+    lostAction: 18, // value of each action lost when a Sensor ends the turn
+    stone: 1, // small cost per stone, so it doesn't sprawl for nothing
+    pass: 4, // penalty for ending the turn with actions left
+    deploySensorPrior: 0.6,
+  };
+
+  // --------------------------------------------------------------- beliefs
+
+  function beliefs(v) {
+    let setupUnknown = 0;
+    let jewelsKnown = v.jewelsTaken;
+    for (const c in v.tokens) {
+      const t = v.tokens[c];
+      if (t.origin !== 'setup') continue;
+      if (t.type === 'unknown') setupUnknown++;
+      else if (t.type === 'jewel') jewelsKnown++;
+    }
+    const jewelsLeft = Math.max(0, RF.CONFIG.setupJewels - jewelsKnown);
+    const pSetup = setupUnknown ? Math.min(1, jewelsLeft / setupUnknown) : 0;
+    const bel = {};
+    for (const c in v.tokens) {
+      const t = v.tokens[c];
+      if (t.type === 'jewel') bel[c] = { pJ: 1, pS: 0, pD: 0 };
+      else if (t.type === 'sensor') bel[c] = { pJ: 0, pS: 1, pD: 0 };
+      else if (t.type === 'decoy') bel[c] = { pJ: 0, pS: 0, pD: 1 };
+      else if (t.origin === 'setup') bel[c] = { pJ: pSetup, pS: 1 - pSetup, pD: 0 };
+      else bel[c] = { pJ: 0, pS: W.deploySensorPrior, pD: 1 - W.deploySensorPrior };
+    }
+    return bel;
+  }
+
+  // ----------------------------------------------------------------- paths
+
+  // Cheapest set of cells to occupy so that `target` holds a stone connected
+  // to an exit. Returns { cost, path } (path runs target → exit).
+  function pathToExit(v, bel, target, extra) {
+    extra = extra || {};
+    const hard = (i) => !!(v.hardened[i] || (extra.hardened && extra.hardened[i]));
+    const nodeCost = (i) => {
+      if (v.stones[i]) return 0;
+      if (RF.isInfra(i) && hard(i)) return INF;
+      const b = bel[i];
+      return 1 + (b && i !== target ? b.pS * W.sensorRisk : 0);
+    };
+    const isExit = (i) => RF.rowOf(i) === 0 || RF.REGION[i] === 'H' || (RF.isInfra(i) && !hard(i));
+
+    const dist = new Array(RF.N).fill(INF);
+    const prev = new Array(RF.N).fill(-1);
+    const done = new Array(RF.N).fill(false);
+    dist[target] = nodeCost(target);
+    if (dist[target] >= INF) return { cost: INF, path: [] };
+    for (;;) {
+      let u = -1;
+      for (let i = 0; i < RF.N; i++) if (!done[i] && dist[i] < INF && (u < 0 || dist[i] < dist[u])) u = i;
+      if (u < 0) return { cost: INF, path: [] };
+      if (isExit(u)) {
+        const path = [];
+        for (let x = u; x >= 0; x = prev[x]) path.push(x);
+        return { cost: dist[u], path: path.reverse() };
+      }
+      done[u] = true;
+      for (const w of RF.attackerNeighbors(v, u, extra)) {
+        if (done[w]) continue;
+        const d = dist[u] + nodeCost(w);
+        if (d < dist[w]) {
+          dist[w] = d;
+          prev[w] = u;
+        }
+      }
+    }
+  }
+
+  // Distance after the Defender's most damaging single response on this
+  // path: one wall on a wallable edge, or hardening an infra cell used.
+  function worstCut(v, bel, target, path, base) {
+    let worst = base;
+    for (let k = 0; k + 1 < path.length; k++) {
+      const a = path[k];
+      const b = path[k + 1];
+      const nb = RF.NEIGHBORS[a].find((n) => n.cell === b);
+      if (nb && !RF.wallError(v, nb.key)) {
+        const r = pathToExit(v, bel, target, { walls: { [nb.key]: true } });
+        if (r.cost > worst) worst = r.cost;
+      }
+    }
+    for (const c of path) {
+      if (RF.isInfra(c) && !v.hardened[c]) {
+        const r = pathToExit(v, bel, target, { hardened: { [c]: true } });
+        if (r.cost > worst) worst = r.cost;
+      }
+    }
+    return worst;
+  }
+
+  // ------------------------------------------------------------ evaluation
+
+  function evaluate(v, level) {
+    if (v.jewelsTaken >= RF.CONFIG.jewelsToWin) return 1e6;
+    const bel = beliefs(v);
+    const items = [];
+    for (const c in v.tokens) {
+      const b = bel[c];
+      if (b.pJ <= 0) continue;
+      const cell = +c;
+      const r = pathToExit(v, bel, cell);
+      items.push({ cell, p: b.pJ, r, val: r.cost >= INF ? 0 : (b.pJ * W.near) / (1 + r.cost) });
+    }
+    items.sort((x, y) => y.val - x.val);
+    const weights = [1, 0.6, 0.3, 0.15, 0.1, 0.05];
+    let sum = 0;
+    items.forEach((it, n) => {
+      let val = it.val;
+      if (level.robust && n < 2 && it.r.cost < INF) {
+        const dc = worstCut(v, bel, it.cell, it.r.path, it.r.cost);
+        val += dc >= INF ? 0 : (it.p * W.robust) / (1 + dc);
+      }
+      sum += val * (weights[n] || 0.05);
+    });
+    const stones = v.stones.reduce((a, b) => a + b, 0);
+    return v.jewelsTaken * 1000 + sum - W.stone * stones;
+  }
+
+  // Possible results of an action as seen by the Attacker:
+  // [{ p, state, penalty }]. Entering or scouting an unknown token branches
+  // on what it might turn out to be.
+  function outcomes(v, bel, a) {
+    const branch = (forcedType) => {
+      const c = RF.clone(v);
+      if (forcedType) c.tokens[a.cell].type = forcedType;
+      const res = RF.act(c, a);
+      if (!res.ok) return null;
+      const triggered = res.events.some((e) => e.kind === 'sensor');
+      return { state: c, penalty: triggered ? W.lostAction * Math.max(0, v.actionsLeft - 1) : 0 };
+    };
+    const t = a.cell != null ? v.tokens[a.cell] : null;
+    const hidden = t && !t.faceUp && t.type === 'unknown' &&
+      (a.type === 'breach' || a.type === 'spread' || a.type === 'recon');
+    if (!hidden) {
+      const o = branch(null);
+      return o ? [Object.assign({ p: 1 }, o)] : [];
+    }
+    const b = bel[a.cell];
+    const out = [];
+    [['jewel', b.pJ], ['sensor', b.pS], ['decoy', b.pD]].forEach(([type, p]) => {
+      if (p <= 0) return;
+      const o = branch(type);
+      if (o) out.push(Object.assign({ p }, o));
+    });
+    return out;
+  }
+
+  function actionValue(v, bel, a, level) {
+    switch (a.type) {
+      case 'exfil':
+        return 1e7;
+      case 'endTurn':
+        return evaluate(v, level) - (v.actionsLeft > 0 ? W.pass : 0);
+      case 'recon':
+        // At depth 1 Recon's worth is purely informational, so by value it's
+        // slightly worse than doing nothing; the policy decides when to use it.
+        return evaluate(v, level) - W.pass - 1;
+    }
+    let ev = 0;
+    for (const o of outcomes(v, bel, a)) ev += o.p * (evaluate(o.state, level) - o.penalty);
+    return ev;
+  }
+
+  // Expectimax within the Attacker's own turn.
+  function searchValue(v, bel, a, level, depth) {
+    if (depth <= 1 || a.type === 'endTurn' || a.type === 'exfil') return actionValue(v, bel, a, level);
+    let ev = 0;
+    for (const o of outcomes(v, bel, a)) {
+      const s2 = o.state;
+      let val;
+      if (s2.winner || s2.actionsLeft <= 0) val = evaluate(s2, level);
+      else val = bestFollowUp(s2, level, depth - 1);
+      ev += o.p * (val - o.penalty);
+    }
+    return ev;
+  }
+
+  function bestFollowUp(v, level, depth) {
+    const bel = beliefs(v);
+    const legal = RF.legalAttackerActions(v);
+    if (legal.some((a) => a.type === 'exfil')) return actionValue(v, bel, { type: 'exfil' }, level);
+    // Always evaluate at least "stop here" so a bad follow-up is never forced.
+    let best = evaluate(v, level);
+    const scored = legal
+      .filter((a) => a.type !== 'endTurn')
+      .map((a) => ({ a, val: a.type === 'recon' ? Infinity : actionValue(v, bel, a, level) }))
+      .sort((x, y) => y.val - x.val)
+      .slice(0, level.beam || 6);
+    for (const { a, val } of scored) {
+      const sv = depth > 1 || a.type === 'recon' ? searchValue(v, bel, a, level, Math.max(depth, 2)) : val;
+      if (sv > best) best = sv;
+    }
+    return best;
+  }
+
+  // ---------------------------------------------------------------- policy
+
+  /**
+   * Pick the Attacker's next action.
+   * @param state  full game state (only the attacker view is used)
+   * @param opts   { level: 'easy'|'normal', rng: () => number }
+   * @returns { action, note }
+   */
+  function chooseAction(state, opts) {
+    opts = opts || {};
+    const level = LEVELS[opts.level] || LEVELS.normal;
+    const rng = opts.rng || Math.random;
+    const v = RF.attackerView(state);
+    const legal = RF.legalAttackerActions(v);
+
+    const exfil = legal.find((a) => a.type === 'exfil');
+    if (exfil) return { action: exfil, note: 'Route to an exit is open: exfiltrate.' };
+
+    const bel = beliefs(v);
+    let best = null;
+    let bestVal = -Infinity;
+    let pool = legal.map((a) => ({ a, val: actionValue(v, bel, a, level) }));
+    if (level.depth > 1 && v.actionsLeft > 1) {
+      // Search the most promising actions (and every Recon) one step deeper.
+      pool.sort((x, y) => y.val - x.val);
+      const deep = pool.filter((x, n) => n < level.beam || x.a.type === 'recon');
+      pool = deep.map((x) => ({ a: x.a, val: searchValue(v, bel, x.a, level, level.depth) }));
+    }
+    for (const { a, val: raw } of pool) {
+      const val = raw + (rng() - 0.5) * level.noise;
+      if (val > bestVal) {
+        bestVal = val;
+        best = a;
+      }
+    }
+
+    // Scout before stepping onto a token that is likely a Sensor, if there's
+    // still an action left afterwards to use what we learn.
+    if (level.recon && best && (best.type === 'spread' || best.type === 'breach')) {
+      const t = v.tokens[best.cell];
+      const b = bel[best.cell];
+      if (t && t.type === 'unknown' && b.pS >= level.reconThreshold && v.actionsLeft >= 2) {
+        const recon = legal.find((a) => a.type === 'recon' && a.cell === best.cell);
+        if (recon) return { action: recon, note: noteFor(v, bel, 'Scouting ' + RF.cellName(best.cell) + ' first (sensor risk ' + pct(b.pS) + ').') };
+      }
+    }
+    return { action: best, note: noteFor(v, bel) };
+  }
+
+  function noteFor(v, bel, prefix) {
+    let bestC = null;
+    let bestVal = -1;
+    let bestCost = INF;
+    for (const c in v.tokens) {
+      const b = bel[c];
+      if (b.pJ <= 0) continue;
+      const r = pathToExit(v, bel, +c);
+      const val = r.cost >= INF ? 0 : b.pJ / (1 + r.cost);
+      if (val > bestVal) {
+        bestVal = val;
+        bestC = +c;
+        bestCost = r.cost;
+      }
+    }
+    const tgt = bestC == null
+      ? 'No reachable jewel candidates.'
+      : 'Main target ' + RF.cellName(bestC) + ' (jewel chance ' + pct(bel[bestC].pJ) + ', ~' +
+        (bestCost >= INF ? '∞' : Math.round(bestCost)) + ' stones from exfil).';
+    return (prefix ? prefix + ' ' : '') + tgt;
+  }
+
+  const pct = (p) => Math.round(p * 100) + '%';
+
+  return { chooseAction, evaluate, beliefs, pathToExit, worstCut, LEVELS, WEIGHTS: W };
+});

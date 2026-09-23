@@ -4,7 +4,9 @@
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
 Status: design draft v0.1. Rules are complete and playable on paper. Numbers
-are starting values for playtesting (Section 11).
+are starting values for playtesting (Section 11). A playable browser
+prototype (you as the Defender against an AI Attacker) is in
+[`ringfence/`](../ringfence/).
 
 ---
 

@@ -68,3 +68,8 @@ A two-player asymmetric strategy game in the spirit of Netrunner, chess and
 go. It promotes vDefend DFW 1-2-3-4 and SSP. The full rules, board, worked
 example, promotional mapping and playtest plan are in
 [`docs/RINGFENCE-GAME-DESIGN.md`](docs/RINGFENCE-GAME-DESIGN.md).
+
+A playable prototype is in [`ringfence/`](ringfence/): you play the Defender
+against an AI Attacker. Once this is on GitHub Pages it's served at
+`https://<user>.github.io/<repo>/ringfence/`. See
+[`ringfence/README.md`](ringfence/README.md).
