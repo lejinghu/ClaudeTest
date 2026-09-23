@@ -101,7 +101,9 @@ code { font-size: 0.9em; }
 .lg-stone { width: 12px; height: 12px; border-radius: 50%; background: var(--stone); }
 .lg-wall { background: var(--wall); }
 .lg-fence { background: var(--fence); }
-.lg-flow { background: repeating-linear-gradient(90deg, var(--flow) 0 5px, transparent 5px 8px); }
+.lg-flow { background: repeating-linear-gradient(90deg, var(--flow) 0 4px, transparent 4px 7px); height: 4px; }
+.lg-allow { background: var(--flow); }
+.lg-emergency { background: var(--zone); }
 .lg-zone { background: repeating-linear-gradient(90deg, var(--zone) 0 7px, transparent 7px 11px); }
 .lg-exit { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed var(--muted); }
 
@@ -125,7 +127,8 @@ code { font-size: 0.9em; }
 .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 4px; }
 .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
 .meter.danger .bar > span { background: var(--stone); }
-.meter.wide { grid-column: span 2; display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+.meter.wide { grid-column: span 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; font-size: 13px; color: var(--muted); }
+.meter.wide span { display: flex; justify-content: space-between; gap: 6px; }
 .meter.wide b { color: var(--text); }
 
 .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -147,7 +150,6 @@ code { font-size: 0.9em; }
   text-align: left; min-height: 54px; padding: 6px 10px; border-radius: 10px; cursor: pointer;
   border: 1px solid var(--line); background: var(--surface-2);
 }
-.act:last-child { grid-column: span 2; }
 .act .num { grid-row: span 2; font-weight: 800; font-size: 18px; color: var(--accent); }
 .act .lbl { font-weight: 700; }
 .act .cost { font-size: 12px; color: var(--muted); }
@@ -213,8 +215,20 @@ code { font-size: 0.9em; }
 .fence { stroke: var(--fence); stroke-width: 6; stroke-linecap: round; }
 .wall { fill: var(--wall); }
 .wall.pending { fill: none; stroke: var(--wall); stroke-width: 2; stroke-dasharray: 4 3; }
-.flow { stroke: var(--flow); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 5 4; }
-.flow-end { fill: var(--flow); }
+.flow .flow-line { stroke: var(--flow); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 4 4; }
+.flow .flow-end { fill: none; stroke: var(--flow); stroke-width: 1.5; }
+.flow.unseen .flow-line { stroke: var(--muted); stroke-dasharray: 2 4; opacity: 0.8; }
+.flow.unseen .flow-end { stroke: var(--muted); }
+.allow .flow-line { stroke: var(--flow); stroke-width: 5; stroke-linecap: round; }
+.allow .flow-end { fill: var(--flow); }
+.allow.draft .flow-line { stroke-dasharray: 5 3; }
+.allow.emergency .flow-line { stroke: var(--zone); }
+.allow.emergency .flow-end { fill: var(--zone); }
+.flow-bang { fill: var(--zone); stroke: var(--surface); stroke-width: 1.5; }
+.t-bang { font-size: 9px; font-weight: 900; fill: #fff; }
+.fence.preview { stroke-dasharray: 6 4; opacity: 0.85; }
+.fence.preview.breaks { stroke: var(--stone); }
+.bad { color: var(--stone); }
 .t-app { font-size: 11px; font-weight: 700; fill: var(--muted); }
 .t-infra { font-size: 11px; font-weight: 800; fill: var(--text); letter-spacing: 0.04em; }
 .t-axis { font-size: 12px; fill: var(--muted); font-weight: 600; }
@@ -246,4 +260,5 @@ code { font-size: 0.9em; }
   .btn.ghost { padding: 6px 10px; }
   .layout { padding: 12px 16px; gap: 12px; }
   .board-wrap { padding: 4px; }
+  .meter.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

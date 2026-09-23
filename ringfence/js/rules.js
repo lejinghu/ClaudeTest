@@ -7,6 +7,14 @@
  *
  * Cells are indexed 0..48, row-major. Row 0 is "row 1" on the printed board
  * (the internet edge); column 0 is "a".
+ *
+ * Business flows are hidden and drawn at random each game. Security
+ * Intelligence reveals them over time: everyday flows after one round of
+ * traffic history, rare (month-end) flows once the look-back reaches last
+ * month's run, one round before they run again. Locking down an app is two
+ * steps, as in the real workflow: publish allow rules (exceptions) for its
+ * flows, then ring-fence it to block everything else. A real flow that ends
+ * up blocked is an outage.
  */
 (function (root, factory) {
   const RF = factory();
@@ -37,9 +45,18 @@
     deployDecoys: 3,
     setupJewels: 3,
     scoreHarden: 1,
-    scoreRingfence: 2,
+    scoreRingfence: 3,
     scoreZoneSealed: 2,
     scoreQuarantine: 1,
+    // Hidden business flows (design doc Section 5.7).
+    flowsPerGame: 11,
+    rareFlowShare: 0.3,
+    flowSeenRound: 2, // everyday flows show up after one round of traffic
+    rareSeenRound: 4, // month-end flows show up once the look-back reaches them
+    rareFlowRound: 5, // ...and run again (breaking if blocked) from this round
+    outagePenalty: 2,
+    allowCost: 0, // publishing the recommendation: one click, no Insight
+    manualExceptionCost: 1, // extra, per exception the recommendation didn't include
   };
 
   const LAYOUT = [
@@ -72,14 +89,6 @@
   };
   const PROD_APPS = ['F', 'G', 'H', 'J', 'K', 'L'];
 
-  const FLOWS = [
-    ['d3', 'd4', 'CI/CD deploy'],
-    ['d5', 'd6', 'Inventory ↔ API'],
-    ['e5', 'f5', 'API ↔ Storefront'],
-    ['b6', 'c6', 'API ↔ Customer DB'],
-    ['e6', 'e7', 'API ↔ Payments'],
-  ];
-
   // ---------------------------------------------------------------- geometry
 
   const REGION = [];
@@ -102,11 +111,6 @@
     else APP_CELLS[REGION[i]].push(i);
   }
 
-  const flowByKey = {};
-  FLOWS.forEach(([a, b, name]) => {
-    flowByKey[edgeKey(cellIndex(a), cellIndex(b))] = name;
-  });
-
   const EDGES = {};
   const NEIGHBORS = [];
   for (let i = 0; i < N; i++) NEIGHBORS.push([]);
@@ -120,7 +124,6 @@
       orient: rowOf(a) === rowOf(b) ? 'v' : 'h',
       border: REGION[a] !== REGION[b],
       zone: rowOf(a) === 2 && rowOf(b) === 3,
-      flow: flowByKey[key] || null,
     };
     NEIGHBORS[a].push({ cell: b, key });
     NEIGHBORS[b].push({ cell: a, key });
@@ -132,7 +135,23 @@
       if (r + 1 < SIZE) addEdge(i, i + SIZE);
     }
   }
-  const ZONE_EDGES = Object.values(EDGES).filter((e) => e.zone && !e.flow).map((e) => e.key);
+  const ZONE_EDGES = Object.values(EDGES).filter((e) => e.zone).map((e) => e.key);
+
+  // Edges where two different applications touch: the only places a
+  // business flow can run. Keyed by app pair, e.g. 'G|J'.
+  const APP_PAIRS = {};
+  Object.values(EDGES).forEach((e) => {
+    if (!e.border || isInfra(e.a) || isInfra(e.b)) return;
+    const pair = [REGION[e.a], REGION[e.b]].sort().join('|');
+    (APP_PAIRS[pair] = APP_PAIRS[pair] || []).push(e.key);
+  });
+
+  // Edges on an app's outer border (to another app, infra, or zone).
+  function appBorderEdges(app) {
+    return Object.values(EDGES)
+      .filter((e) => e.border && (REGION[e.a] === app) !== (REGION[e.b] === app))
+      .map((e) => e.key);
+  }
 
   // ------------------------------------------------------------------ rng
 
@@ -194,7 +213,33 @@
     return arr;
   }
 
-  function newGame(setup) {
+  // Draw this game's hidden business flows: every app talks to at least one
+  // neighbour, each flow runs over one specific shared edge, and some flows
+  // are rare (month-end jobs) that Security Intelligence sees only late.
+  function generateFlows(rng) {
+    const pairs = Object.keys(APP_PAIRS).sort();
+    const used = new Set();
+    const flows = {};
+    const degree = {};
+    const add = (pair) => {
+      used.add(pair);
+      const keys = APP_PAIRS[pair];
+      const key = keys[Math.floor(rng() * keys.length)];
+      flows[key] = { rare: rng() < CONFIG.rareFlowShare };
+      pair.split('|').forEach((a) => (degree[a] = (degree[a] || 0) + 1));
+    };
+    for (const app of shuffle(Object.keys(APPS), rng)) {
+      if (degree[app]) continue;
+      const options = pairs.filter((p) => !used.has(p) && p.split('|').includes(app));
+      if (options.length) add(options[Math.floor(rng() * options.length)]);
+    }
+    const rest = shuffle(pairs.filter((p) => !used.has(p)), rng);
+    while (Object.keys(flows).length < CONFIG.flowsPerGame && rest.length) add(rest.pop());
+    return flows;
+  }
+
+  function newGame(setup, opts) {
+    opts = opts || {};
     const err = validateSetup(setup);
     if (err) throw new Error(err);
     const tokens = {};
@@ -221,6 +266,10 @@
       zoneSealed: false,
       winner: null,
       reason: '',
+      flows: opts.flows || generateFlows(opts.rng || Math.random), // hidden truth
+      discovered: {}, // flows Security Intelligence has shown the Defender
+      allows: {}, // exception rules: key -> 'rec' | 'manual' | 'emergency'
+      outages: 0,
     };
   }
 
@@ -228,14 +277,19 @@
 
   // ------------------------------------------------------------ board queries
 
+  // Rule order, as in a real policy: explicit walls (drop), then exception
+  // (allow) rules, then the ring-fence's default drop, else open.
   function isOpen(s, key, extra) {
     const e = EDGES[key];
-    if (e.flow) return true;
     if (s.walls[key]) return false;
     if (extra && extra.walls && extra.walls[key]) return false;
+    if (s.allows[key]) return true;
     if (e.border && (s.fenced[REGION[e.a]] || s.fenced[REGION[e.b]])) return false;
     return true;
   }
+
+  const isFlowActive = (s, key) =>
+    !!s.flows[key] && (!s.flows[key].rare || s.round >= CONFIG.rareFlowRound);
 
   const isHardened = (s, i, extra) =>
     !!(s.hardened[i] || (extra && extra.hardened && extra.hardened[i]));
@@ -296,7 +350,8 @@
   function wallError(s, key) {
     const e = EDGES[key];
     if (!e) return 'That is not an edge.';
-    if (e.flow) return 'Business flow (' + e.flow + '): it can never be walled.';
+    if (s.allows[key]) return 'An exception (allow rule) covers that edge.';
+    if (s.discovered[key]) return 'Security Intelligence has seen a business flow there. Walling it would cause an outage.';
     if (s.walls[key]) return 'There is already a wall there.';
     if (e.border) {
       if (!isOpen(s, key)) return 'A ring-fence already blocks that edge.';
@@ -311,7 +366,19 @@
     return Object.keys(EDGES).filter((k) => !wallError(s, k));
   }
 
+  // The Security Intelligence recommendation for locking down an app:
+  // allow every observed flow on its border that isn't already allowed.
+  function recommendedExceptions(s, app) {
+    return appBorderEdges(app).filter((k) => s.discovered[k] && !s.allows[k] && !s.walls[k]);
+  }
+
   const ringfenceCost = (app) => APP_CELLS[app].length;
+
+  // Allow cost: 1, plus 1 per manual exception (one the recommendation didn't include).
+  function allowCost(s, edges) {
+    return CONFIG.allowCost +
+      edges.filter((k) => !s.discovered[k] && !s.allows[k]).length * CONFIG.manualExceptionCost;
+  }
 
   // ---------------------------------------------------------------- actions
 
@@ -378,6 +445,36 @@
         });
         break;
       }
+      case 'allow': {
+        const app = a.app;
+        if (!APPS[app]) return 'Pick an application.';
+        // Defaults to the Security Intelligence recommendation for the app.
+        const edges = (Array.isArray(a.edges) ? [...new Set(a.edges)] : recommendedExceptions(s, app))
+          .filter((k) => !s.allows[k]);
+        const border = new Set(appBorderEdges(app));
+        if (!edges.length)
+          return 'Nothing new to allow: Security Intelligence hasn’t observed any flows on app ' + app + '’s border yet.';
+        for (const k of edges) {
+          if (!border.has(k)) return 'Exceptions must be on app ' + app + '’s border.';
+          if (s.walls[k]) return 'There is a wall on that edge. An exception would contradict it.';
+        }
+        const cost = allowCost(s, edges);
+        if (s.insight < cost) return 'Publishing these exceptions costs ' + cost + ' Insight.';
+        s.insight -= cost;
+        let rec = 0;
+        let manual = 0;
+        edges.forEach((k) => {
+          if (s.discovered[k]) { s.allows[k] = 'rec'; rec++; } else { s.allows[k] = 'manual'; manual++; }
+        });
+        const parts = [];
+        if (rec) parts.push(rec + ' recommended');
+        if (manual) parts.push(manual + ' manual');
+        ev.push({
+          kind: 'allow', app, edges,
+          text: 'Allow: published ' + parts.join(' and ') + ' exception' + (edges.length > 1 ? 's' : '') + ' for app ' + app + ' (' + APPS[app].name + ').',
+        });
+        break;
+      }
       case 'ringfence': {
         const app = a.app;
         if (!APPS[app]) return 'Pick an application.';
@@ -387,7 +484,13 @@
         s.insight -= cost;
         s.fenced[app] = true;
         s.score += CONFIG.scoreRingfence;
-        ev.push({ kind: 'ringfence', app, text: 'Ring-fence app ' + app + ' (' + APPS[app].name + ') (+' + CONFIG.scoreRingfence + ' score).' });
+        const open = appBorderEdges(app).filter((k) => s.allows[k]).length;
+        ev.push({
+          kind: 'ringfence', app,
+          text: 'Ring-fence app ' + app + ' (' + APPS[app].name + '): ' +
+            (open ? open + ' exception' + (open > 1 ? 's' : '') + ' kept open, ' : 'no exceptions, ') +
+            'everything else blocked (+' + CONFIG.scoreRingfence + ' score).',
+        });
         break;
       }
       case 'deploy': {
@@ -413,7 +516,52 @@
     return null;
   }
 
+  // Any active business flow that policy now blocks is an outage: the change
+  // is rolled back with an emergency allow rule, and it costs Score.
+  function checkOutages(s, ev) {
+    for (const key in s.flows) {
+      if (!isFlowActive(s, key) || isOpen(s, key)) continue;
+      const e = EDGES[key];
+      if (s.walls[key]) {
+        delete s.walls[key];
+        s.wallsLeft++;
+      }
+      s.allows[key] = 'emergency';
+      s.discovered[key] = true;
+      s.score -= CONFIG.outagePenalty;
+      s.outages++;
+      ev.push({
+        kind: 'outage', edge: key,
+        text: 'OUTAGE: ' + APPS[REGION[e.a]].name + ' ↔ ' + APPS[REGION[e.b]].name + ' (' + cellName(e.a) + '–' + cellName(e.b) + ')' +
+          (s.flows[key].rare ? ', a month-end flow,' : '') + ' was blocked. Emergency allow rule added (−' + CONFIG.outagePenalty + ' score).',
+      });
+    }
+  }
+
+  // Security Intelligence reveals flows once there's enough traffic history.
+  function discoverFlows(s, ev) {
+    const found = [];
+    for (const key in s.flows) {
+      if (s.discovered[key]) continue;
+      const seen = s.flows[key].rare ? CONFIG.rareSeenRound : CONFIG.flowSeenRound;
+      if (s.round >= seen) {
+        s.discovered[key] = true;
+        found.push(key);
+      }
+    }
+    if (!found.length) return;
+    const blocked = found.filter((k) => !isOpen(s, k));
+    let text = 'Security Intelligence observed ' + found.length + ' new business flow' + (found.length > 1 ? 's' : '') + '.';
+    if (blocked.length) {
+      text += ' ' + blocked.length + ' of them ' + (blocked.length > 1 ? 'are' : 'is') + ' blocked by your policy (' +
+        blocked.map((k) => cellName(EDGES[k].a) + '–' + cellName(EDGES[k].b)).join(', ') +
+        '). Allow ' + (blocked.length > 1 ? 'them' : 'it') + ' before round ' + CONFIG.rareFlowRound + ' or it becomes an outage.';
+    }
+    ev.push({ kind: 'discover', edges: found, text });
+  }
+
   function afterDefenderAction(s, ev) {
+    checkOutages(s, ev);
     // Quarantine: groups with no open edge to an enterable cell are removed.
     for (const g of allGroups(s)) {
       const hasLiberty = g.some((i) =>
@@ -431,7 +579,7 @@
         });
       }
     }
-    if (!s.zoneSealed && ZONE_EDGES.every((k) => !isOpen(s, k))) {
+    if (!s.zoneSealed && ZONE_EDGES.every((k) => !isOpen(s, k) || s.allows[k])) {
       s.zoneSealed = true;
       s.score += CONFIG.scoreZoneSealed;
       ev.push({ kind: 'zone', text: 'Dev/Prod zone boundary sealed (+' + CONFIG.scoreZoneSealed + ' score). Leakage alerts are on.' });
@@ -454,11 +602,11 @@
         if (!adjacentToStone(s, c)) return 'Spread needs an open edge from one of your stones.';
         if (s.stonesLeft <= 0) return 'No stones left.';
         const leaked = s.zoneSealed && crossesZone(s, c);
-        const viaFlow = NEIGHBORS[c].some((n) => s.stones[n.cell] && EDGES[n.key].flow);
+        const viaFlow = NEIGHBORS[c].some((n) => s.stones[n.cell] && s.allows[n.key]);
         const viaHub = isInfra(c) && INFRA_CELLS.some((k) => k !== c && s.stones[k] && !s.hardened[k]);
         let how = '';
         if (viaHub && !NEIGHBORS[c].some((n) => s.stones[n.cell] && isOpen(s, n.key))) how = ' (hub hop)';
-        else if (viaFlow) how = ' (via business flow)';
+        else if (viaFlow) how = ' (through an allowed flow)';
         placeStone(s, c, ev, 'Spread to ' + cellName(c) + how + '.');
         if (leaked) {
           s.insight += 1;
@@ -547,6 +695,10 @@
     }
     s.actionsLeft = CONFIG.actionsPerTurn;
     ev.push({ kind: 'turn', text: (s.turn === 'defender' ? 'Round ' + s.round + ': Defender' : 'Attacker') + ' to act.' });
+    if (s.turn === 'defender') {
+      discoverFlows(s, ev);
+      checkOutages(s, ev);
+    }
   }
 
   // ------------------------------------------------ legal moves, hidden info
@@ -579,14 +731,18 @@
     v.poolTotal = v.pool.sensor + v.pool.decoy;
     delete v.pool;
     delete v.deployGone;
+    // The Defender's flow data is theirs alone. Allow rules on the board are public.
+    v.flows = {};
+    v.discovered = {};
     return v;
   }
 
   return {
-    SIZE, N, CONFIG, LAYOUT, APPS, INFRA, PROD_APPS, FLOWS, REGION, EDGES, NEIGHBORS,
-    APP_CELLS, INFRA_CELLS, ZONE_EDGES,
+    SIZE, N, CONFIG, LAYOUT, APPS, INFRA, PROD_APPS, REGION, EDGES, NEIGHBORS,
+    APP_CELLS, INFRA_CELLS, ZONE_EDGES, APP_PAIRS,
     rowOf, colOf, cellName, cellIndex, isInfra, zoneOf, edgeKey,
-    makeRng, shuffle, validateSetup, randomSetup, newGame, clone,
+    makeRng, shuffle, validateSetup, randomSetup, generateFlows, newGame, clone,
+    appBorderEdges, recommendedExceptions, isFlowActive, allowCost,
     isOpen, attackerNeighbors, canEnter, isExit, isBreachable, groupOf, allGroups,
     groupHasExit, adjacentToStone, wallError, wallableEdges, ringfenceCost,
     act, legalAttackerActions, attackerView,

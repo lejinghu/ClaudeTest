@@ -4,6 +4,11 @@ A playable browser prototype of the RINGFENCE design
 ([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md)). You
 play the **Defender** and an AI plays the **Attacker**.
 
+Since v0.2, business flows are hidden and drawn at random each game.
+Security Intelligence reveals them over time. Locking down an app follows
+the real workflow: observe traffic, publish exceptions (**4a Allow**), then
+ring-fence (**4b**). Blocking a flow you haven't allowed causes an outage.
+
 It's plain HTML, CSS and JS with no dependencies. `index.html` is **one
 self-contained file**, with the CSS and JS inlined, so it renders the same
 wherever it's opened: GitHub Pages, straight from disk, a file preview, or
@@ -66,23 +71,24 @@ as a single downloaded or attached file.
     it values Recon for what it reveals and finds combinations such as
     "reveal a jewel, then exfiltrate".
 
-## Balance snapshot
+## Balance snapshot (v0.2)
 
 ```
-node ringfence/tools/sim.js 200 hard     # or: normal, easy; add --fuzz
+node ringfence/tools/sim.js 200 hard              # careful Defender bot
+node ringfence/tools/sim.js 200 hard --mindless   # ring-fence everything ASAP
+node ringfence/tools/sim.js 200 hard scoreTarget=9 allowCost=1   # try CONFIG changes
+node ringfence/tools/sim.js 20 --fuzz             # random games + invariant checks
 ```
 
-These are 200 games against the scripted Defender bot, using the v0.1
-numbers:
+Each row is 200 games. The number shown is the Attacker's win rate.
 
-| Attacker AI | Attacker win rate | Median game length |
-|---|---|---|
-| Easy | 24% | 6 rounds |
-| Normal | 30% | 6 rounds |
-| Hard | 38% | 6 rounds |
-| Random moves (baseline) | 0.5% | — |
+| Defender bot | vs Easy AI | vs Normal AI | vs Hard AI | Outages per game |
+|---|---|---|---|---|
+| Mindless: ring-fence as soon as affordable, no exceptions | 97% | 98% | 98% | about 4.4 |
+| Careful: observe → allow → ring-fence, respond to threats | 45% | 54% | 57% | about 0.1 |
 
-The bot Defender is simple, so a thoughtful human will probably do better.
-The numbers show the AI is making sensible decisions, but they aren't a
-verdict on balance. All the tunable numbers are in `CONFIG` at the top of
+The Defender bot only knows the flows Security Intelligence has shown it, as
+a human would. It's simple, so a thoughtful human should do better. Treat
+these numbers as evidence of the intended trade-off, not a verdict on
+balance. All the tunable numbers are in `CONFIG` at the top of
 `js/rules.js`. The AI's weights are in `W` in `js/ai.js`.

@@ -3,6 +3,9 @@
  * attacker AI and get rough balance numbers. It knows where its own jewels
  * are (as the real Defender does) and plays a plain "respond to threats,
  * otherwise follow 1-2-3-4" script. It is deliberately not clever.
+ *
+ * Like a human, it only knows the business flows Security Intelligence has
+ * shown it, so its lookahead never peeks at hidden flows.
  */
 'use strict';
 const RF = require('../js/rules.js');
@@ -23,13 +26,22 @@ function threat(s) {
   return best;
 }
 
-function tryAction(s, a) {
+// What the Defender can know: only the flows Security Intelligence revealed.
+function known(s) {
   const c = RF.clone(s);
+  const flows = {};
+  for (const k in c.flows) if (c.discovered[k]) flows[k] = c.flows[k];
+  c.flows = flows;
+  return c;
+}
+
+function tryAction(s, a) {
+  const c = known(s);
   const res = RF.act(c, a);
   return res.ok ? c : null;
 }
 
-function candidateResponses(s) {
+function candidateResponses(s, canFence) {
   const out = [];
   if (s.insight >= RF.CONFIG.hardenCost)
     RF.INFRA_CELLS.filter((c) => !s.hardened[c]).forEach((cell) => out.push({ type: 'harden', cell }));
@@ -57,8 +69,12 @@ function candidateResponses(s) {
       out.push({ type: 'segment', edges: best2 ? [best1, best2] : [best1] });
     }
   }
-  Object.keys(RF.APPS).forEach((app) => {
-    if (!s.fenced[app] && s.insight >= RF.ringfenceCost(app)) out.push({ type: 'ringfence', app });
+  if (canFence) Object.keys(RF.APPS).forEach((app) => {
+    if (s.fenced[app]) return;
+    // Exceptions first, then lock down.
+    if (RF.recommendedExceptions(s, app).length) {
+      if (s.insight >= RF.CONFIG.allowCost) out.push({ type: 'allow', app });
+    } else if (s.insight >= RF.ringfenceCost(app)) out.push({ type: 'ringfence', app });
   });
   if (s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0) {
     for (let c = 0; c < RF.N; c++) {
@@ -69,7 +85,11 @@ function candidateResponses(s) {
   return out;
 }
 
-function chooseAction(s) {
+// patient: wait for one round of flow data before locking anything down.
+function chooseAction(s, opts) {
+  opts = opts || {};
+  const patient = opts.patient !== false;
+  const canFence = !patient || s.round >= RF.CONFIG.flowSeenRound;
   if (s.actionsLeft <= 0) return { type: 'endTurn' };
   const T = threat(s);
 
@@ -77,7 +97,7 @@ function chooseAction(s) {
     let best = null;
     let bestT = T;
     let bestGain = -1;
-    for (const a of candidateResponses(s)) {
+    for (const a of candidateResponses(s, canFence)) {
       const c = tryAction(s, a);
       if (!c) continue;
       const t = threat(c);
@@ -90,6 +110,12 @@ function chooseAction(s) {
     if (s.actionsLeft >= 2 || s.insight === 0) return { type: 'assess' };
   }
 
+  // Newly observed flows that current policy blocks will break: allow them.
+  for (const app of Object.keys(RF.APPS)) {
+    if (s.fenced[app] && RF.recommendedExceptions(s, app).some((k) => !RF.isOpen(s, k)) && s.insight >= RF.CONFIG.allowCost)
+      return { type: 'allow', app };
+  }
+
   // Progress: 1-2-3-4, cheapest points first.
   const unhardened = RF.INFRA_CELLS.filter((c) => !s.hardened[c]);
   if (unhardened.length && s.insight >= RF.CONFIG.hardenCost) return { type: 'harden', cell: unhardened[0] };
@@ -100,16 +126,37 @@ function chooseAction(s) {
   const fenceable = Object.keys(RF.APPS)
     .filter((a) => !s.fenced[a])
     .sort((a, b) => (jewelApps.has(b) - jewelApps.has(a)) || RF.ringfenceCost(a) - RF.ringfenceCost(b));
-  const affordable = fenceable.find((a) => s.insight >= RF.ringfenceCost(a));
-  if (affordable && jewelApps.has(affordable)) return { type: 'ringfence', app: affordable };
+  const affordable = canFence ? fenceable.find((a) => s.insight >= RF.ringfenceCost(a)) : null;
+  const lockDown = (app) =>
+    RF.recommendedExceptions(s, app).length ? { type: 'allow', app } : { type: 'ringfence', app };
+  if (affordable && jewelApps.has(affordable)) return lockDown(affordable);
 
   if (!s.zoneSealed && s.insight >= RF.CONFIG.segmentCost) {
     const open = RF.ZONE_EDGES.filter((k) => !RF.wallError(s, k));
     if (open.length && open.length <= 4 && s.wallsLeft >= Math.min(2, open.length))
       return { type: 'segment', edges: open.slice(0, 2) };
   }
-  if (affordable) return { type: 'ringfence', app: affordable };
+  if (affordable) return lockDown(affordable);
   return { type: 'assess' };
 }
 
-module.exports = { chooseAction, threat };
+// The strategy a player falls into when segmentation is "free": ignore the
+// Attacker and the flow data, harden infra, and ring-fence whatever is
+// affordable, with no exceptions.
+function mindless(s) {
+  if (s.actionsLeft <= 0) return { type: 'endTurn' };
+  const infra = RF.INFRA_CELLS.find((c) => !s.hardened[c]);
+  if (infra != null && s.insight >= RF.CONFIG.hardenCost) return { type: 'harden', cell: infra };
+  // A human always knows which apps hold their jewels, so those go first.
+  const jewelApps = new Set(
+    Object.keys(s.tokens).filter((c) => s.tokens[c].type === 'jewel').map((c) => RF.REGION[c])
+  );
+  const unfenced = Object.keys(RF.APPS).filter((a) => !s.fenced[a]);
+  const wanted = unfenced.filter((a) => jewelApps.has(a)).concat(unfenced.filter((a) => !jewelApps.has(a)));
+  const next = wanted[0];
+  const app = next && s.insight >= RF.ringfenceCost(next) ? next : null;
+  if (app) return { type: 'ringfence', app };
+  return { type: 'assess' };
+}
+
+module.exports = { chooseAction, mindless, threat };

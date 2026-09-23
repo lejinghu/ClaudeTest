@@ -2,7 +2,11 @@
 /*
  * Headless RINGFENCE simulator.
  *
- *   node ringfence/tools/sim.js [games=100] [level=easy|normal|hard] [--fuzz]
+ *   node ringfence/tools/sim.js [games=100] [level=easy|normal|hard] [--mindless|--hasty] [--fuzz] [key=value ...]
+ *
+ * --mindless swaps the Defender bot for one that ignores the Attacker and
+ * just hardens and ring-fences whatever it can afford, from round 1.
+ * --hasty keeps the normal bot but lets it lock down before any flow data.
  *
  * Plays the scripted Defender bot against the attacker AI and prints win
  * rates, game length and action mix. --fuzz also plays random-vs-random
@@ -17,6 +21,14 @@ const args = process.argv.slice(2);
 const games = parseInt(args.find((a) => /^\d+$/.test(a)) || '100', 10);
 const level = args.find((a) => a === 'easy' || a === 'normal' || a === 'hard') || 'normal';
 const fuzz = args.includes('--fuzz');
+// Try balance changes without editing rules.js, e.g. allowCost=0 scoreTarget=9
+args.filter((a) => /^\w+=[\d.]+$/.test(a)).forEach((a) => {
+  const [k, v] = a.split('=');
+  if (!(k in RF.CONFIG)) throw new Error('Unknown CONFIG key ' + k);
+  RF.CONFIG[k] = parseFloat(v);
+  console.log('CONFIG.' + k + ' = ' + v);
+});
+const defenderKind = args.includes('--mindless') ? 'mindless' : args.includes('--hasty') ? 'hasty' : 'patient';
 
 function checkInvariants(s) {
   const onBoard = s.stones.reduce((a, b) => a + b, 0);
@@ -33,7 +45,7 @@ function checkInvariants(s) {
 
 function playGame(seed, defenderPick, attackerPick) {
   const rng = RF.makeRng(seed);
-  const s = RF.newGame(RF.randomSetup(rng));
+  const s = RF.newGame(RF.randomSetup(rng), { rng });
   const counts = {};
   let guard = 0;
   while (!s.winner) {
@@ -50,7 +62,8 @@ function playGame(seed, defenderPick, attackerPick) {
 }
 
 const aiAttacker = (s, rng) => AI.chooseAction(s, { level, rng }).action;
-const botDefender = (s) => Bot.chooseAction(s);
+const botDefender = defenderKind === 'mindless' ? (s) => Bot.mindless(s)
+  : (s) => Bot.chooseAction(s, { patient: defenderKind === 'patient' });
 
 function randomAttacker(s, rng) {
   const legal = RF.legalAttackerActions(s);
@@ -62,7 +75,11 @@ function randomDefender(s, rng) {
   RF.INFRA_CELLS.forEach((cell) => opts.push({ type: 'harden', cell }));
   const edges = RF.wallableEdges(s);
   if (edges.length) opts.push({ type: 'segment', edges: [edges[Math.floor(rng() * edges.length)]] });
-  Object.keys(RF.APPS).forEach((app) => opts.push({ type: 'ringfence', app }));
+  Object.keys(RF.APPS).forEach((app) => {
+    const border = RF.appBorderEdges(app);
+    opts.push({ type: 'ringfence', app });
+    opts.push({ type: 'ringfence', app, allow: border.filter(() => rng() < 0.3) });
+  });
   opts.push({ type: 'deploy', cell: Math.floor(rng() * RF.N), kind: rng() < 0.5 ? 'sensor' : 'decoy' });
   const legal = opts.filter((a) => RF.act(RF.clone(s), a).ok);
   return legal[Math.floor(rng() * legal.length)];
@@ -75,21 +92,24 @@ if (fuzz) {
 
 const t0 = Date.now();
 let attackerWins = 0;
+let outages = 0;
 const rounds = [];
 const reasons = {};
 const mix = {};
 for (let i = 0; i < games; i++) {
   const { s, counts } = playGame('g' + i, botDefender, aiAttacker);
   if (s.winner === 'attacker') attackerWins++;
+  outages += s.outages;
   rounds.push(Math.min(s.round, RF.CONFIG.roundLimit));
   const r = s.winner + ': ' + s.reason.replace(/\d+/g, 'N');
   reasons[r] = (reasons[r] || 0) + 1;
   for (const k in counts) mix[k] = (mix[k] || 0) + counts[k];
 }
 rounds.sort((a, b) => a - b);
-console.log(`${games} games, bot Defender vs ${level} AI Attacker (${((Date.now() - t0) / games).toFixed(0)} ms/game)`);
+console.log(`${games} games, ${defenderKind} Defender vs ${level} AI Attacker (${((Date.now() - t0) / games).toFixed(0)} ms/game)`);
 console.log(`Attacker win rate: ${((100 * attackerWins) / games).toFixed(1)}%`);
 console.log(`Median round at game end: ${rounds[Math.floor(games / 2)]}`);
+console.log(`Outages per game: ${(outages / games).toFixed(2)}`);
 console.log('Outcomes:');
 Object.entries(reasons).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => console.log(`  ${n.toString().padStart(4)}  ${k}`));
 console.log('Action mix:');

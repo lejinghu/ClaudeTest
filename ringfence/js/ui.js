@@ -39,8 +39,9 @@
     phase: 'setup', // setup | play | over
     setup: null,
     state: null,
-    mode: null, // harden | segment | ringfence | deploy
+    mode: null, // harden | segment | allow | ringfence | deploy
     pending: [],
+    draft: null, // allow: { app, edges: Set } · ringfence: { app }
     deployKind: 'sensor',
     undo: [],
     log: [],
@@ -52,7 +53,7 @@
   };
 
   function newStats() {
-    return { assess: 0, harden: 0, segment: 0, walls: 0, ringfence: 0, deploy: 0, sensorHits: 0, quarantines: 0, leaks: 0, zone: false, recons: 0 };
+    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, sensorHits: 0, quarantines: 0, leaks: 0, zone: false, recons: 0, outages: 0 };
   }
 
   function newGame() {
@@ -61,6 +62,7 @@
     ui.state = null;
     ui.mode = null;
     ui.pending = [];
+    ui.draft = null;
     ui.undo = [];
     ui.log = [];
     ui.recent = new Set();
@@ -74,11 +76,14 @@
   function startGame() {
     const err = RF.validateSetup(ui.setup);
     if (err) return toast(err);
-    ui.state = RF.newGame(ui.setup);
+    ui.state = RF.newGame(ui.setup, { rng });
     ui.phase = 'play';
     ui.selected = null;
     addLog('sys', 'Round 1');
     addLog('D', 'Your tokens are hidden. The Attacker can see where they are, but not what they are.');
+    addLog('D', 'Security Intelligence is collecting traffic. Everyday business flows appear from round ' + RF.CONFIG.flowSeenRound +
+      '. Month-end flows appear in round ' + RF.CONFIG.rareSeenRound + ' and first run in round ' + RF.CONFIG.rareFlowRound +
+      '. Ring-fencing an app blocks every flow you haven’t allowed.');
     render();
   }
 
@@ -101,12 +106,13 @@
       if (ev.kind === 'sensor') st.sensorHits++;
       if (ev.kind === 'quarantine') st.quarantines++;
       if (ev.kind === 'leak') st.leaks++;
+      if (ev.kind === 'outage') st.outages++;
       if (ev.kind === 'zone') st.zone = true;
       if (ev.kind === 'turn') {
         if (ui.state.turn === 'defender') addLog('sys', 'Round ' + ui.state.round);
         continue;
       }
-      const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'zone', 'end'].includes(ev.kind);
+      const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'zone', 'end', 'outage', 'discover'].includes(ev.kind);
       addLog(who, (who === 'A' && ev.kind === 'stone' ? 'Attacker: ' : '') + text, big);
     }
     return res;
@@ -124,8 +130,14 @@
     const st = ui.stats;
     if (action.type in st) st[action.type]++;
     if (action.type === 'segment') st.walls += action.edges.length;
+    if (res.events.some((e) => e.kind === 'outage')) {
+      // An outage reveals a hidden flow, so it can't be taken back.
+      ui.undo = [];
+      toast('Outage! You blocked a real business flow. This can’t be undone.');
+    }
     ui.mode = null;
     ui.pending = [];
+    ui.draft = null;
     render();
   }
 
@@ -137,6 +149,7 @@
     ui.stats = snap.stats;
     ui.mode = null;
     ui.pending = [];
+    ui.draft = null;
     render();
   }
 
@@ -144,6 +157,7 @@
     if (ui.busy || ui.phase !== 'play' || ui.state.turn !== 'defender') return;
     ui.mode = null;
     ui.pending = [];
+    ui.draft = null;
     ui.undo = [];
     apply({ type: 'endTurn' }, 'D');
     if (ui.state.winner) return finish();
@@ -202,7 +216,16 @@
       ['Assessed ' + st.assess + '×', 'Stage 1: Security Segmentation Assessment & Report. You can’t segment what you can’t see.'],
       ['Hardened ' + hardened + ' of 3 infrastructure services', 'Stage 2: Infrastructure Services segmentation for DNS, NTP and LDAP. It closes common C2 and exfiltration paths.'],
       [(st.zone ? 'Sealed' : 'Did not seal') + ' the Dev/Prod boundary' + (st.leaks ? ', with ' + st.leaks + ' leakage alert' + (st.leaks > 1 ? 's' : '') : ''), 'Stage 3: Environment (zone) segmentation with leakage alerts.'],
-      ['Ring-fenced ' + fenced.length + ' app' + (fenced.length === 1 ? '' : 's') + (fenced.length ? ' (' + fenced.join(', ') + ')' : ''), 'Stage 4: Application microsegmentation. Ring-fence apps, then fine-tune the tiers.'],
+      ['Published exceptions for ' + st.allow + ' app' + (st.allow === 1 ? '' : 's') + ', then ring-fenced ' + fenced.length + (fenced.length ? ' (' + fenced.join(', ') + ')' : ''),
+        'Stage 4: Application microsegmentation. Security Intelligence recommends allow rules for the flows it observed; publish them, then lock down everything else.'],
+      [st.outages ? 'Caused ' + st.outages + ' outage' + (st.outages > 1 ? 's' : '') + ' (−' + st.outages * RF.CONFIG.outagePenalty + ' score)' : 'Caused no outages',
+        'Locking down before you’ve seen an app’s traffic breaks production. Recommendations built on enough flow history avoid it.'],
+      (() => {
+        const manual = Object.keys(s.allows).filter((k) => s.allows[k] === 'manual');
+        const needless = manual.filter((k) => !s.flows[k]).length;
+        return [manual.length + ' manual exception' + (manual.length === 1 ? '' : 's') + (manual.length ? ', ' + needless + ' of them unnecessary' : ''),
+          'Firewall Rule Analysis flags overly permissive rules like these. Every unneeded allow is a path an attacker can use.'];
+      })(),
       ['Sensors caught the Attacker ' + st.sensorHits + '×', 'SSP threat prevention: distributed IDS/IPS inspects the traffic the firewall allows.'],
     ];
     $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
@@ -224,6 +247,12 @@
       return;
     }
     if (ui.mode === 'segment' && edgeEl) return segmentClick(edgeEl.dataset.edge);
+    if (ui.mode === 'allow' && edgeEl && ui.draft) {
+      const k = edgeEl.dataset.edge;
+      if (ui.draft.edges.has(k)) ui.draft.edges.delete(k);
+      else ui.draft.edges.add(k);
+      return render();
+    }
     if (!cellEl) return;
     const c = +cellEl.dataset.cell;
     const s = ui.state;
@@ -234,9 +263,15 @@
     switch (ui.mode) {
       case 'harden':
         return defenderDo({ type: 'harden', cell: c });
+      case 'allow':
+        if (RF.isInfra(c)) return toast('Pick an application. Infrastructure is protected by Harden.');
+        ui.draft = { app: RF.REGION[c], edges: new Set(RF.recommendedExceptions(s, RF.REGION[c])) };
+        return render();
       case 'ringfence':
         if (RF.isInfra(c)) return toast('Infrastructure cells are hardened, not ring-fenced.');
-        return defenderDo({ type: 'ringfence', app: RF.REGION[c] });
+        if (s.fenced[RF.REGION[c]]) return toast('App ' + RF.REGION[c] + ' is already ring-fenced.');
+        ui.draft = { app: RF.REGION[c] };
+        return render();
       case 'deploy':
         return defenderDo({ type: 'deploy', cell: c, kind: ui.deployKind });
       case 'segment':
@@ -279,8 +314,20 @@
     if (mode === 'assess') return defenderDo({ type: 'assess' });
     ui.mode = ui.mode === mode ? null : mode;
     ui.pending = [];
+    ui.draft = null;
     ui.selected = null;
     render();
+  }
+
+  function publishAllow() {
+    const d = ui.draft;
+    if (!d) return;
+    const edges = [...d.edges].filter((k) => !ui.state.allows[k]);
+    defenderDo({ type: 'allow', app: d.app, edges });
+  }
+
+  function confirmFence() {
+    if (ui.draft) defenderDo({ type: 'ringfence', app: ui.draft.app });
   }
 
   // ---------------------------------------------------------- rendering
@@ -307,6 +354,11 @@
     if (!s || ui.busy || s.turn !== 'defender') return out;
     for (let i = 0; i < RF.N; i++) {
       if (ui.mode === 'harden' && RF.isInfra(i) && !s.hardened[i]) out.add(i);
+      if (ui.draft) {
+        if (RF.REGION[i] === ui.draft.app) out.add(i);
+        continue;
+      }
+      if (ui.mode === 'allow' && !RF.isInfra(i)) out.add(i);
       if (ui.mode === 'ringfence' && !RF.isInfra(i) && !s.fenced[RF.REGION[i]] && s.insight >= RF.ringfenceCost(RF.REGION[i])) out.add(i);
       if (ui.mode === 'deploy' && !RF.isInfra(i) && !s.stones[i] && !s.tokens[i]) out.add(i);
     }
@@ -371,7 +423,7 @@
     if (s) {
       for (const key in RF.EDGES) {
         const e = RF.EDGES[key];
-        if (e.flow || !e.border) continue;
+        if (!e.border || s.allows[key]) continue;
         if (s.fenced[RF.REGION[e.a]] || s.fenced[RF.REGION[e.b]]) {
           const [x1, y1, x2, y2] = edgeLine(e, 5);
           el('line', { class: 'fence', x1, y1, x2, y2 }, walls);
@@ -381,19 +433,32 @@
       ui.pending.forEach((key) => wallRect(RF.EDGES[key], 'wall pending', walls));
     }
 
-    // Business flows.
+    // Business flows and exception (allow) rules.
     const flows = el('g', {}, svg);
-    for (const key in RF.EDGES) {
-      const e = RF.EDGES[key];
-      if (!e.flow) continue;
-      const mx = (cx(e.a) + cx(e.b)) / 2 + CS / 2;
-      const my = (cy(e.a) + cy(e.b)) / 2 + CS / 2;
-      const [dx, dy] = e.orient === 'v' ? [12, 0] : [0, 12];
-      const g = el('g', {}, flows);
-      el('title', {}, g).textContent = 'Business flow: ' + e.flow + ' (can never be walled)';
-      el('line', { class: 'flow', x1: mx - dx, y1: my - dy, x2: mx + dx, y2: my + dy }, g);
-      el('circle', { class: 'flow-end', cx: mx - dx, cy: my - dy, r: 3 }, g);
-      el('circle', { class: 'flow-end', cx: mx + dx, cy: my + dy, r: 3 }, g);
+    if (s) {
+      if (ui.draft && ui.mode === 'ringfence') {
+        // Preview: what the lockdown will block.
+        for (const key of RF.appBorderEdges(ui.draft.app)) {
+          if (s.allows[key] || s.walls[key] || !RF.isOpen(s, key)) continue;
+          const [x1, y1, x2, y2] = edgeLine(RF.EDGES[key], 5);
+          el('line', { class: 'fence preview' + (s.discovered[key] ? ' breaks' : ''), x1, y1, x2, y2 }, flows);
+        }
+      }
+      const keys = new Set([...Object.keys(s.discovered), ...Object.keys(s.allows)]);
+      if (ui.phase === 'over') Object.keys(s.flows).forEach((k) => keys.add(k));
+      if (ui.draft && ui.mode === 'allow') ui.draft.edges.forEach((k) => keys.add(k));
+      for (const key of keys) {
+        const allow = s.allows[key];
+        const drafted = ui.draft && ui.mode === 'allow' && ui.draft.edges.has(key) && !allow;
+        let cls;
+        let title;
+        if (allow === 'emergency') { cls = 'allow emergency'; title = 'Emergency allow rule, added after an outage'; }
+        else if (allow) { cls = 'allow'; title = allow === 'manual' ? 'Manual exception (allow rule)' : 'Exception from the Security Intelligence recommendation'; }
+        else if (drafted) { cls = 'allow draft'; title = 'Exception you are about to publish'; }
+        else if (s.discovered[key]) { cls = 'flow'; title = 'Observed business flow: not allowed yet'; }
+        else { cls = 'flow unseen'; title = 'Business flow Security Intelligence never observed'; }
+        drawFlow(RF.EDGES[key], cls, title, flows);
+      }
     }
 
     // Tokens and stones.
@@ -423,6 +488,21 @@
       const r = el('rect', { class: cls, x: cx(i) + 1.5, y: cy(i) + 1.5, width: CS - 3, height: CS - 3, rx: 4, 'data-cell': i }, hits);
       el('title', {}, r).textContent = cellTitle(i);
     }
+    if (ui.mode === 'allow' && ui.draft && s && !ui.busy) {
+      for (const key of RF.appBorderEdges(ui.draft.app)) {
+        if (s.allows[key] || s.walls[key]) continue;
+        const e = RF.EDGES[key];
+        if (!ui.draft.edges.has(key)) wallRect(e, 'edge-hint', hits, 3);
+        const X = cx(e.b);
+        const Y = cy(e.b);
+        const attrs = e.orient === 'v'
+          ? { x: X - 12, y: Y + 8, width: 24, height: CS - 16 }
+          : { x: X + 8, y: Y - 12, width: CS - 16, height: 24 };
+        attrs.class = 'edge-hit';
+        attrs['data-edge'] = key;
+        el('rect', attrs, hits);
+      }
+    }
     if (ui.mode === 'segment' && s && !ui.busy) {
       for (const key of RF.wallableEdges(s)) {
         if (ui.pending.includes(key)) continue;
@@ -448,6 +528,21 @@
         attrs['data-edge'] = key;
         el('rect', attrs, hits);
       });
+    }
+  }
+
+  function drawFlow(e, cls, title, parent) {
+    const mx = (cx(e.a) + cx(e.b)) / 2 + CS / 2;
+    const my = (cy(e.a) + cy(e.b)) / 2 + CS / 2;
+    const [dx, dy] = e.orient === 'v' ? [12, 0] : [0, 12];
+    const g = el('g', { class: cls }, parent);
+    el('title', {}, g).textContent = title + ' (' + RF.cellName(e.a) + '–' + RF.cellName(e.b) + ')';
+    el('line', { class: 'flow-line', x1: mx - dx, y1: my - dy, x2: mx + dx, y2: my + dy }, g);
+    el('circle', { class: 'flow-end', cx: mx - dx, cy: my - dy, r: 3 }, g);
+    el('circle', { class: 'flow-end', cx: mx + dx, cy: my + dy, r: 3 }, g);
+    if (cls.includes('emergency')) {
+      el('circle', { class: 'flow-bang', cx: mx, cy: my, r: 6 }, g);
+      el('text', { class: 't-bang', x: mx, y: my + 3.5, 'text-anchor': 'middle' }, g).textContent = '!';
     }
   }
 
@@ -517,8 +612,11 @@
       text += ' Token: ' + (t.faceUp ? 'revealed ' : 'face-down ') + t.type + '.';
       if (!t.faceUp) text += t.recon ? ' The Attacker has scouted it.' : ' The Attacker doesn’t know what it is.';
     }
-    const flows = RF.NEIGHBORS[i].filter((n) => RF.EDGES[n.key].flow).map((n) => RF.EDGES[n.key].flow);
-    if (flows.length) text += ' Flow: ' + flows.join(', ') + '.';
+    const other = (n) => RF.cellName(n.cell) + ' (' + (RF.APPS[RF.REGION[n.cell]] ? RF.APPS[RF.REGION[n.cell]].name : RF.REGION[n.cell]) + ')';
+    const seen = RF.NEIGHBORS[i].filter((n) => s && s.discovered[n.key] && !s.allows[n.key]).map(other);
+    const allowed = RF.NEIGHBORS[i].filter((n) => s && s.allows[n.key]).map(other);
+    if (seen.length) text += ' Observed flow, not allowed yet, to ' + seen.join(', ') + '.';
+    if (allowed.length) text += ' Exception open to ' + allowed.join(', ') + '.';
     return text;
   }
 
@@ -559,7 +657,7 @@
       pips.appendChild(p);
     }
 
-    const scorePct = Math.min(100, (100 * s.score) / RF.CONFIG.scoreTarget);
+    const scorePct = Math.max(0, Math.min(100, (100 * s.score) / RF.CONFIG.scoreTarget));
     const jewelPct = (100 * s.jewelsTaken) / RF.CONFIG.jewelsToWin;
     const hiddenJewels = Object.values(s.tokens).filter((t) => t.type === 'jewel').length;
     $('meters').innerHTML =
@@ -567,14 +665,17 @@
       meter('Jewels stolen', s.jewelsTaken + '<small> / ' + RF.CONFIG.jewelsToWin + '</small>', jewelPct, 'danger') +
       meter('Insight', String(s.insight), null, '') +
       meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
-      '<div class="meter wide"><span>Walls <b>' + s.wallsLeft + '</b></span><span>Sensors <b>' + s.pool.sensor +
-      '</b></span><span>Decoys <b>' + s.pool.decoy + '</b></span><span>Jewels on board <b>' + hiddenJewels + '</b></span></div>';
+      '<div class="meter wide"><span>Flows observed <b>' + Object.keys(s.discovered).length + '</b></span><span>Outages <b' +
+      (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>Walls <b>' + s.wallsLeft +
+      '</b></span><span>Sensors <b>' + s.pool.sensor + '</b></span><span>Decoys <b>' + s.pool.decoy +
+      '</b></span><span>Jewels hidden <b>' + hiddenJewels + '</b></span></div>';
 
     // Action buttons.
     const can = {
       assess: true,
       harden: s.insight >= RF.CONFIG.hardenCost && RF.INFRA_CELLS.some((c) => !s.hardened[c]),
       segment: s.insight >= RF.CONFIG.segmentCost && s.wallsLeft > 0 && RF.wallableEdges(s).length > 0,
+      allow: true,
       ringfence: Object.keys(RF.APPS).some((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a)),
       deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor + s.pool.decoy > 0,
     };
@@ -608,11 +709,40 @@
     } else if (ui.mode === 'harden') {
       html = 'Tap <b>NTP</b>, <b>DNS</b> or <b>LDAP</b> to harden it.' + cancelBtn();
     } else if (ui.mode === 'segment') {
-      html = 'Tap up to ' + Math.min(2, s.wallsLeft) + ' highlighted edges to wall them. Green flows can’t be walled.' +
+      html = 'Tap up to ' + Math.min(2, s.wallsLeft) + ' highlighted edges to wall them. Observed flows can’t be walled. Walling a flow you haven’t observed yet causes an outage.' +
         '<div class="row">' + (ui.pending.length ? '<button class="btn primary" data-hint="commit" type="button">Place 1 wall</button>' : '') +
         '<button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
+    } else if (ui.mode === 'allow' && !ui.draft) {
+      html = '<b>4a Allow.</b> Tap an app to open its Security Intelligence recommendation: allow rules for every flow observed on its border. Publishing it costs ' +
+        RF.CONFIG.allowCost + ' Insight. You can also tap other border edges to add manual exceptions (+' + RF.CONFIG.manualExceptionCost + ' each).' + cancelBtn();
+    } else if (ui.mode === 'allow') {
+      const d = ui.draft;
+      const edges = [...d.edges].filter((k) => !s.allows[k]);
+      const rec = edges.filter((k) => s.discovered[k]).length;
+      const manual = edges.length - rec;
+      const cost = RF.allowCost(s, edges);
+      const already = RF.appBorderEdges(d.app).filter((k) => s.allows[k]).length;
+      html = '<b>Exceptions for app ' + d.app + ' (' + esc(RF.APPS[d.app].name) + ')</b><br>' +
+        'Recommended: <b>' + rec + '</b> observed flow' + (rec === 1 ? '' : 's') + '. Manual: <b>' + manual + '</b>. Already open: ' + already + '.<br>' +
+        '<span class="muted small">Tap border edges to add or remove exceptions. Every exception is a path the Attacker can use too. Month-end flows stay invisible until round ' + RF.CONFIG.rareSeenRound + '.</span>' +
+        '<div class="row"><button class="btn primary" data-hint="publish" type="button"' + (edges.length && s.insight >= cost ? '' : ' disabled') + '>Publish ' + edges.length +
+        ' (' + cost + ' Insight)</button><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
+    } else if (ui.mode === 'ringfence' && ui.draft) {
+      const app = ui.draft.app;
+      const border = RF.appBorderEdges(app);
+      const open = border.filter((k) => s.allows[k]).length;
+      const blocked = border.filter((k) => !s.allows[k] && !s.walls[k] && RF.isOpen(s, k)).length;
+      const breaks = border.filter((k) => s.discovered[k] && !s.allows[k]).length;
+      const cost = RF.ringfenceCost(app);
+      const early = s.round < RF.CONFIG.flowSeenRound;
+      html = '<b>Lock down app ' + app + ' (' + esc(RF.APPS[app].name) + ')</b><br>' + open + ' exception' + (open === 1 ? ' stays' : 's stay') +
+        ' open. ' + blocked + ' edge' + (blocked === 1 ? '' : 's') + ' will be blocked.' +
+        (breaks ? '<br><b class="bad">⚠ ' + breaks + ' observed flow' + (breaks > 1 ? 's are' : ' is') + ' not allowed. ' + (breaks > 1 ? 'They' : 'It') + ' will break: −' + RF.CONFIG.outagePenalty + ' score each. Use 4a Allow first.</b>' : '') +
+        (early ? '<br><span class="bad">⚠ There’s no traffic history yet, so any business flow here will break.</span>' : '') +
+        '<div class="row"><button class="btn primary" data-hint="fence" type="button"' + (s.insight >= cost ? '' : ' disabled') + '>Lock down (' + cost +
+        ' Insight)</button><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
     } else if (ui.mode === 'ringfence') {
-      html = 'Tap an app to ring-fence it. Cost = its size. Affordable now: ' +
+      html = '<b>4b Ring-fence.</b> Tap an app to preview the lockdown. Cost = its size. Only exceptions stay open. Affordable now: ' +
         (Object.keys(RF.APPS).filter((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a))
           .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
     } else if (ui.mode === 'deploy') {
@@ -677,7 +807,9 @@
       const b = e.target.closest('[data-hint]');
       if (!b) return;
       const h = b.dataset.hint;
-      if (h === 'cancel') { ui.mode = null; ui.pending = []; }
+      if (h === 'cancel') { ui.mode = null; ui.pending = []; ui.draft = null; }
+      else if (h === 'publish') return publishAllow();
+      else if (h === 'fence') return confirmFence();
       else if (h === 'commit' && ui.pending.length) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
       else if (h === 'sensor' || h === 'decoy') ui.deployKind = h;
       render();
@@ -714,10 +846,11 @@
         hide('overlay-rules');
         ui.mode = null;
         ui.pending = [];
+        ui.draft = null;
         return render();
       }
       if (ui.phase !== 'play') return;
-      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'ringfence', 5: 'deploy' };
+      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'allow', 5: 'ringfence', 6: 'deploy' };
       if (map[e.key]) {
         const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
         if (b && !b.disabled) pickMode(map[e.key]);

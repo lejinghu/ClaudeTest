@@ -3,8 +3,18 @@
 *A two-player asymmetric strategy game about lateral movement and Zero Trust.
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
-Status: design draft v0.1. Rules are complete and playable on paper. Numbers
-are starting values for playtesting (Section 11). A playable browser
+Status: design draft v0.2. Rules are complete and playable on paper. Numbers
+are starting values for playtesting (Section 11).
+
+**What changed in v0.2 (hidden flows).** In v0.1, business flows were printed
+on the board and a ring-fence let them through automatically. Locking down
+was always safe and always scored, so the best play was to ring-fence
+everything without thinking. v0.2 follows the real Security Intelligence
+workflow instead: *observe traffic → publish exceptions for valid flows →
+lock down everything else.* Flows are hidden and drawn at random each game
+(Section 5.7). Security Intelligence reveals them over time, and blocking a
+real flow causes an outage. Ring-fencing is now two actions: **4a Allow**,
+then **4b Ring-fence**. A playable browser
 prototype (you as the Defender against an AI Attacker) is in
 [`ringfence/`](../ringfence/).
 
@@ -57,8 +67,10 @@ following lessons through play:
 | "I can't do anything without Insight." | Every enforcement action costs Insight, and only **Assess** produces it. | **Stage 1: Security Segmentation Assessment & Report.** You can't segment what you can't see. Security Intelligence comes first. |
 | "Harden the shared services on turn 1 or the Attacker hops straight into Prod." | Unhardened DNS/NTP/LDAP connect to one another and count as exfil exits. Hardening is cheap. | **Stage 2: Infrastructure Services Segmentation.** DNS, NTP and LDAP are auto-discovered and protected, which closes common C2 and exfiltration paths. A quick win with little disruption. |
 | "One Dev laptop shouldn't reach Prod." | Walls on the zone boundary are cheap. Sealing it scores +2 and raises leakage alerts. | **Stage 3: Environment (Zone) Segmentation.** Dev/Prod boundaries with continuous leakage alerting. |
-| "Placing walls one at a time is whack-a-mole. Ring-fencing wins." | **Ring-fence** blocks an app's whole border in one action and scores +2. Single walls cost more for the same coverage. | **Stage 4: Application Microsegmentation.** Map apps, ring-fence them, then fine-tune tier-level controls. |
-| "Allowed traffic is still an attack path." | Business-flow edges can **never** be walled. Only sensors stop an Attacker using them. | **SSP / vDefend Advanced Threat Prevention.** Distributed IDS/IPS, malware prevention and NDR inspect the traffic the firewall allows. |
+| "If I lock down before I've seen the traffic, I break production." | Business flows are hidden. Security Intelligence reveals everyday flows from round 2 and month-end flows in round 4. Blocking a real flow is an **outage**: −2 Score, plus an emergency allow rule the Attacker can use. | **Security Intelligence** observes flows over a monitoring window before recommending policy. Enforcing without that history breaks applications. |
+| "Exceptions first, then lock down." | **4a Allow** publishes the recommendation (allow rules for every observed flow) in one free action. **4b Ring-fence** then blocks everything else. Skipping 4a saves an action but risks outages. | **Stage 4: Application Microsegmentation.** Security Intelligence recommends groups, services and allow rules. You review, publish, and ring-fence the app with a default drop. |
+| "Placing walls one at a time is whack-a-mole. Ring-fencing wins." | **Ring-fence** blocks an app's whole border in one action and scores +3. Single walls cost more for the same coverage. | Application ring-fencing: allow required inter-app traffic, deny the rest. |
+| "Every exception is an attack path." | Exceptions and emergency allows stay open to the Attacker. Unnecessary manual exceptions show up in the end-game debrief. Only sensors stop an Attacker who uses an allowed flow. | **SSP / vDefend Advanced Threat Prevention.** Distributed IDS/IPS, malware prevention and NDR inspect the traffic the firewall allows. **Firewall Rule Analysis** flags overly permissive rules. |
 | "My score is my progress toward Zero Trust." | The Defender wins by reaching **Segmentation Score 10**. | The segmentation score in the DFW 1-2-3-4 report, which shows measurable progress toward Zero Trust. |
 | *(advanced)* "Leftover rules waste my budget." | Wall supply is limited. **Rule Analysis** recovers redundant walls. | **Firewall Rule Analysis**: finds duplicate, redundant, shadowed, contradictory, overly permissive and ineffective rules. |
 
@@ -79,6 +91,10 @@ the player aid, so every game repeats the product's structure.
   - 6 Sensor (3 used at setup, 3 left in the Deploy pool)
   - 3 Decoy (Deploy pool only)
 - **Insight** chips, about 20
+- 19 **Flow cards**, one for each pair of neighbouring apps, each naming one
+  shared edge and marked *everyday* or *month-end*. 11 are dealt face-down
+  each game (Section 5.7).
+- Green **allow-rule** clips, plus orange **emergency allow** clips
 - A **Segmentation Score** track from 0 to 10, and a round track from 1 to 12
 - 2 player aids
 
@@ -95,16 +111,16 @@ the player aid, so every game repeats the product's structure.
   2  │  A  │  A  │  B  │ NTP │  B  │  C  │  C  │
      ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
   3  │  D  │  D  │  D  │  D  │  E  │  E  │  E  │
-     ╞═════╪═════╪═════╪══┊══╪═════╪═════╪═════╡   ← zone boundary
+     ╞═════╪═════╪═════╪═════╪═════╪═════╪═════╡   ← zone boundary
   4  │  F  │ DNS │  G  │  G  │  G  │LDAP │ H*  │   PROD ZONE
      ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
-  5  │  F  │  F  │  F  │  G  │  J  ┊ H*  │ H*  │
-     ├─────┼─────┼─────┼──┊──┼─────┼─────┼─────┤
-  6  │  K  │  K  ┊  J  │  J  │  J  │  L  │ H*  │
-     ├─────┼─────┼─────┼─────┼──┊──┼─────┼─────┤
+  5  │  F  │  F  │  F  │  G  │  J  │ H*  │ H*  │
+     ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
+  6  │  K  │  K  │  J  │  J  │  J  │  L  │ H*  │
+     ├─────┼─────┼─────┼─────┼─────┼─────┼─────┤
   7  │  K  │  K  │  K  │  J  │  L  │  L  │  L  │
      └─────┴─────┴─────┴─────┴─────┴─────┴─────┘
-      ┊ = business flow (can never be walled)     * = internet-facing
+                                          * = internet-facing
 ```
 
 ### Applications
@@ -135,16 +151,11 @@ The **Prod zone** covers rows 4–7:
 **NTP** (d2), **DNS** (b4) and **LDAP** (f4) don't belong to any
 application.
 
-### Business flows
+### Business flows (hidden)
 
-These edges can **never** be walled. The business needs them to run.
-
-1. **d3–d4**: CI/CD deploys to Inventory. This flow crosses the zone
-   boundary.
-2. **d5–d6**: Inventory ↔ API tier
-3. **e5–f5**: API tier ↔ Web storefront
-4. **b6–c6**: API tier ↔ Customer DB
-5. **e6–e7**: API tier ↔ Payments
+Applications talk to their neighbours over **business flows**. Each flow
+runs over one specific edge between two different apps. The flows are
+different every game, and nobody sees them at the start. See Section 5.7.
 
 ### Key terms
 
@@ -152,8 +163,10 @@ These edges can **never** be walled. The business needs them to run.
 - **Border edge**: an edge between two different regions. Each app, each
   infrastructure cell and each zone counts as a region. Only border edges can
   take walls. Section 5.3 has one exception.
-- **Open edge**: an edge with no wall on it and no ring-fence blocking it.
-  Flows are always open.
+- **Open edge**: an edge the Attacker can cross. Rules apply in this order,
+  as in a real firewall policy: a **wall** blocks the edge; otherwise an
+  **allow rule** (exception) opens it; otherwise a **ring-fence** on either
+  side blocks it; otherwise it's open.
 - **Hub rule**: all *unhardened* infrastructure cells count as adjacent to
   one another, because shared services reach everything.
 - **Group**: attacker stones connected through open edges, including through
@@ -185,8 +198,9 @@ On a turn you take **3 actions**, in any order. You can repeat an action.
 |---|---|---|---|
 | **1** | **ASSESS** | 0 Insight | Gain **2 Insight**. |
 | **2** | **HARDEN** | 1 Insight | Cap one infrastructure cell and remove any attacker stone on it. From then on, the Attacker can't enter that cell, it isn't an exit, and it's no longer part of the hub. **+1 Score.** |
-| **3** | **SEGMENT** | 1 Insight | Place up to **2 walls** on border edges. Walls can split an attacker group. |
-| **4** | **RING-FENCE** | Insight equal to the app's size (3–5) | Put a ring on the app. Every border edge of the app now counts as walled, **except business flows**. **+2 Score.** |
+| **3** | **SEGMENT** | 1 Insight | Place up to **2 walls** on border edges. Walls can split an attacker group. Observed flows can't be walled. Walling a flow you haven't observed yet causes an outage. |
+| **4a** | **ALLOW** | Free, +1 Insight per manual exception | Publish the Security Intelligence recommendation for one app: an allow rule on every *observed* flow on its border. You can also add **manual exceptions** on other border edges, for 1 Insight each. |
+| **4b** | **RING-FENCE** | Insight equal to the app's size (3–5) | Put a ring on the app. Every border edge without an allow rule is now blocked. **+3 Score.** |
 | ★ | **DEPLOY** | 1 Insight | Place a Sensor or Decoy from your pool face-down on any empty cell that has no token. This is the SSP / IDS/IPS action. |
 
 Additional Defender rules:
@@ -227,16 +241,40 @@ open edge to an empty cell** is quarantined: remove all its stones.
 **+1 Score** for each group removed. The Internet doesn't count as an empty
 cell. Cells that have tokens do count as empty.
 
-### 5.7 Winning
+### 5.7 Hidden business flows and outages
+
+- **Setup.** Shuffle the 19 Flow cards and deal 11 face-down. Every app must
+  have at least one flow; in the digital version the deal guarantees it.
+  Roughly 30% of flows are *month-end* flows.
+- **Security Intelligence.** At the start of **round 2**, reveal every
+  *everyday* flow. At the start of **round 4**, reveal the *month-end* flows:
+  the look-back now reaches last month's run.
+- **Outages.** Everyday flows run from round 1; month-end flows first run in
+  **round 5**. Whenever a running flow's edge is blocked by a wall or a
+  ring-fence without an allow rule, there's an outage. Check after each
+  Defender action and at the start of each Defender turn. An outage costs
+  **−2 Score**. Any wall on the edge is removed, and an orange **emergency
+  allow** rule is placed there. It stays open to the Attacker for the rest of
+  the game.
+- **Tabletop referee.** The Attacker (or an app) checks the face-down cards
+  when the Defender blocks an edge, and announces any outage.
+
+### 5.8 Winning
 
 - The **Attacker** wins as soon as they have exfiltrated **2 Crown Jewels**.
 - The **Defender** wins at the end of any Defender turn with **Score ≥ 10**.
+  Score can go below zero after outages.
 - If round 12 ends with no winner, the **Defender** wins: the attacker's
   campaign has been detected and evicted.
 
 ---
 
 ## 6. Worked example: the first five rounds
+
+*This example was written for v0.1, where the five flows below were printed
+on the board and could never be walled. It still shows the spatial ideas:
+hub hops, cutting groups, and forks. Read "business flow" as "a flow the
+Defender has allowed".*
 
 Setup, known only to the Defender:
 
@@ -357,9 +395,13 @@ shrink the attack surface, but allowed flows still need inspection.**
    each turn able to answer the most dangerous threat.
 3. A ring-fence is worth more than walls. It shuts a whole border in one
    action, scores, and leaves more walls in your supply.
-4. Put sensors where flows land. Flows are the paths you can never wall, and
-   the J tier is where most of them meet.
-5. Jewel placement is a bluff. Putting all three deep in K and L is
+4. Observe, allow, then lock down. Don't ring-fence an app before round 2,
+   when you can't see any of its flows yet. Publish its recommendation
+   (4a) first, then ring-fence it (4b). Check the round-4 month-end flows
+   against apps you've already locked down.
+5. Put sensors where your exceptions land. Allowed flows are paths you
+   can't wall. Emergency allows from outages are paths you never chose.
+6. Jewel placement is a bluff. Putting all three deep in K and L is
    predictable. A jewel in G, near the zone boundary, is riskier and harder
    to read.
 
@@ -453,8 +495,13 @@ Use the same board. The Attacker needs **1 Jewel** and the Defender needs
 
 ### Starting values and the levers to adjust
 
-| Lever | v0.1 value | If the Attacker wins too often | If the Defender wins too often |
+| Lever | v0.2 value | If the Attacker wins too often | If the Defender wins too often |
 |---|---|---|---|
+| Ring-fence score | +3 | +4 | +2 |
+| ALLOW cost (recommendation) | 0 Insight | 0 | 1 |
+| Outage penalty | −2 Score | −1 | −3 |
+| Hidden flows per game | 11, ~30% month-end | 9 | 13 |
+| Everyday / month-end flows visible from | round 2 / round 4 | round 1 / round 3 | round 3 / round 5 |
 | Defender starting Insight | 3 | 4 | 2 |
 | ASSESS yield | 2 | 3 on the first ASSESS each turn | 2, unchanged |
 | Ring-fence cost | app size | size − 1 | size + 1 |
@@ -462,19 +509,35 @@ Use the same board. The Attacker needs **1 Jewel** and the Defender needs
 | BREACH per turn | 1 | 1, but not into H* after H is ring-fenced | 2 |
 | Sensor on trigger | ends turn | also removes the adjacent stone | stone removed, turn continues |
 | Round limit | 12 | 10 | 14 |
-| Number of flows | 5 | 4, drop e6–e7 | 6 |
 
 ### Known risks to check first
 
 1. **H-rush.** The storefront is internet-facing and touches L, J and LDAP.
    Check that an Attacker who opens by breaching H and heading for Payments
    can't win by force. If they can, move L so it no longer touches H.
-2. **Defender turtling.** Check that a Defender who only runs Harden → seal
-   zone → ring-fence K and L doesn't win automatically. The flows into J
-   exist to prevent this.
+2. **Mindless lockdown (found in v0.1 playtesting).** Ring-fencing every app
+   as fast as possible was the dominant strategy. v0.2 fixes this with
+   hidden flows and outages. Simulated evidence is below.
 3. **Slow turns.** Three actions with lookahead can make players think for a
    long time. If turns run over about 90 seconds, consider 2 actions per
    turn for the Attacker and for the Quick Match format.
+
+### Simulation results for v0.2
+
+These are 200 games per row against the AI Attacker
+(`node ringfence/tools/sim.js 200 hard [--mindless|--hasty]`). The
+*mindless* Defender hardens infrastructure, then ring-fences apps as soon as
+it can afford them, with no exceptions. The *careful* Defender waits for flow
+data, publishes exceptions, then ring-fences, and responds to threats.
+
+| Defender | vs Easy | vs Normal | vs Hard | Outages per game |
+|---|---|---|---|---|
+| Mindless lockdown | 97% attacker wins | 98% | 98% | about 4.4 |
+| Careful: observe → allow → ring-fence | 45% | 54% | 57% | about 0.1 |
+
+Under v0.1 rules the same careful bot faced a 30–38% attacker win rate. The
+v0.2 values in the table above were tuned (ALLOW free, ring-fence +3) to put
+a careful Defender near 50%.
 
 ### Plan
 
