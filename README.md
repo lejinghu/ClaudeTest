@@ -61,3 +61,10 @@ js/scenes/GameScene.js              Core gameplay, waves, scoring, Security Rule
 js/scenes/GameOverScene.js          Win/lose screen
 .github/workflows/deploy-pages.yml  Auto-deploy to GitHub Pages on push
 ```
+
+## RINGFENCE (design)
+
+A two-player asymmetric strategy game in the spirit of Netrunner, chess and
+go. It promotes vDefend DFW 1-2-3-4 and SSP. The full rules, board, worked
+example, promotional mapping and playtest plan are in
+[`docs/RINGFENCE-GAME-DESIGN.md`](docs/RINGFENCE-GAME-DESIGN.md).
