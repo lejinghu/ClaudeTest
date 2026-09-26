@@ -1,8 +1,21 @@
 # RINGFENCE prototype
 
 A playable browser prototype of the RINGFENCE design
-([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md)). You
-play the **Defender** and an AI plays the **Attacker**.
+([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md), Section
+0 has the current rules). You play the **Defender** and an AI plays the
+**Attacker**.
+
+**v0.6 is a territory game.**
+- Observe apps to map their flows, then ring-fence them.
+- Secure apps and hardened services pay Zero Trust points and Insight every
+  round.
+- Each shared service (NTP, DNS, LDAP) is a backdoor into the apps that use
+  it until you harden it.
+- The Attacker wins by stealing one jewel, or by reaching 7 of 11 apps
+  (ransomware).
+- The v0.5 version is kept as `v05.html` for comparison.
+
+The notes below describe earlier versions:
 
 Business flows are hidden and drawn at random each game. Security
 Intelligence reveals them over time. Locking down an app follows the real

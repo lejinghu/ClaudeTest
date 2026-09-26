@@ -292,3 +292,15 @@ code { font-size: 0.9em; }
 .suggest { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .suggest .btn { min-height: 38px; text-align: left; font-weight: 600; font-size: 13px; background: var(--surface); }
 .suggest .btn em { font-style: normal; color: var(--muted); font-weight: 500; }
+
+/* v0.6: shared services, dependencies, blast radius */
+:root { --svc-NTP: #8b5cf6; --svc-DNS: #0284c7; --svc-LDAP: #d97706; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --svc-NTP: #a78bfa; --svc-DNS: #38bdf8; --svc-LDAP: #fbbf24; } }
+.dep.svc-NTP { fill: var(--svc-NTP); } .dep.svc-DNS { fill: var(--svc-DNS); } .dep.svc-LDAP { fill: var(--svc-LDAP); }
+.infra-ring { fill: none; stroke-width: 3; }
+.infra-ring.svc-NTP { stroke: var(--svc-NTP); } .infra-ring.svc-DNS { stroke: var(--svc-DNS); } .infra-ring.svc-LDAP { stroke: var(--svc-LDAP); }
+.t-users { font-size: 8.5px; fill: var(--muted); font-weight: 700; letter-spacing: 0.05em; }
+.compromised { fill: color-mix(in srgb, var(--stone) 13%, transparent); pointer-events: none; }
+.lg-dep { width: 30px; height: 8px; background: radial-gradient(circle at 4px 4px, var(--svc-NTP) 3.5px, transparent 4px), radial-gradient(circle at 15px 4px, var(--svc-DNS) 3.5px, transparent 4px), radial-gradient(circle at 26px 4px, var(--svc-LDAP) 3.5px, transparent 4px); }
+.lg-comp { width: 14px; height: 14px; background: color-mix(in srgb, var(--stone) 25%, transparent); border-radius: 3px; }
+.act .num { font-size: 16px; }

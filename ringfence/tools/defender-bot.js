@@ -1,191 +1,131 @@
 /*
- * A simple scripted Defender, used only by tools/sim.js to exercise the
- * attacker AI and get rough balance numbers. It knows where its own jewels
- * are (as the real Defender does) and plays a plain "respond to threats,
- * otherwise follow 1-2-3-4" script. It is deliberately not clever.
+ * Scripted Defenders for tools/sim.js (v0.6 territory rules). They know where
+ * their own jewels are, as a human does, but only the business flows
+ * Security Intelligence has shown them.
  *
- * Like a human, it only knows the business flows Security Intelligence has
- * shown it, so its lookahead never peeks at hidden flows.
+ * Strategies, so the simulator can check that more than one plan works:
+ *   careful   observe → harden the jewels' services → fence jewel apps →
+ *             expand territory; answer threats with Isolate / Harden / Sensor
+ *   territory fence as much (observed) territory as fast as possible
+ *   fortress  jewel apps and all services only, then Sensors
+ *   infra     harden every service first, then careful
+ *   hasty     careful, but fences without observing first
+ *   mindless  harden and fence whatever is affordable; never observes, never responds
  */
 'use strict';
 const RF = require('../js/rules.js');
 const AI = require('../js/ai.js');
 
-// Fewest attacker actions (stones + the exfil itself) to steal any real jewel,
-// judged the way the attacker would see the board.
-function threat(s) {
-  const v = RF.attackerView(s);
-  const bel = AI.beliefs(v);
-  let best = Infinity;
-  for (const c in s.tokens) {
-    const t = s.tokens[c];
-    if (t.type !== 'jewel') continue;
-    const r = AI.pathToExit(v, bel, +c);
-    if (r.cost < best) best = r.cost + 1;
-  }
-  return best;
+const apps = () => Object.keys(RF.APPS);
+const jewelApps = (s) => [...new Set(Object.keys(s.tokens).filter((c) => s.tokens[c].type === 'jewel').map((c) => RF.REGION[c]))];
+const hasStones = (s, app) => RF.APP_CELLS[app].some((c) => s.stones[c]);
+const mapped = (s, app) => s.observed[app] === -1; // flows revealed
+const size = (app) => RF.ringfenceCost(app);
+const act = (s, a) => { const c = AI.defenderKnown(s); return RF.act(c, a).ok ? c : null; };
+
+// Lower = more dangerous. Combines the jewel threat and the ransomware threat.
+function danger(s) {
+  const t = AI.defenderThreat(s);
+  const r = AI.ransomThreat(s);
+  const jewel = t ? t.rank : 99;
+  const ransom = r.danger ? RF.CONFIG.attackerActions : 99;
+  return Math.min(jewel, ransom);
 }
 
-// What the Defender can know: only the flows Security Intelligence revealed.
-function known(s) {
-  const c = RF.clone(s);
-  const flows = {};
-  for (const k in c.flows) if (c.discovered[k]) flows[k] = c.flows[k];
-  c.flows = flows;
-  return c;
-}
-
-function tryAction(s, a) {
-  const c = known(s);
-  const res = RF.act(c, a);
-  return res.ok ? c : null;
-}
-
-function candidateResponses(s, canFence) {
+function responses(s) {
   const out = [];
-  if (s.insight >= RF.CONFIG.hardenCost)
-    RF.INFRA_CELLS.filter((c) => !s.hardened[c]).forEach((cell) => out.push({ type: 'harden', cell }));
-  if (s.insight >= RF.segmentCost(1) && s.wallsLeft > 0) {
-    // Greedy: keep adding the wall that most delays the Attacker, while it
-    // still helps and the Insight and wall supply allow. One action.
-    const edges = RF.wallableEdges(s);
-    const chosen = [];
-    let current = -1;
-    while (chosen.length < s.wallsLeft && s.insight >= RF.segmentCost(chosen.length + 1)) {
-      let bestK = null;
-      let bestT = current;
-      for (const k of edges) {
-        if (chosen.includes(k)) continue;
-        const c = tryAction(s, { type: 'segment', edges: chosen.concat(k) });
-        const t = c ? threat(c) : -1;
-        if (t > bestT) { bestT = t; bestK = k; }
-      }
-      if (!bestK) break;
-      chosen.push(bestK);
-      current = bestT;
-    }
-    if (chosen.length) out.push({ type: 'segment', edges: chosen });
-  }
-  if (canFence) Object.keys(RF.APPS).forEach((app) => {
-    // Ring-fence publishes the recommendation for known flows by itself.
-    if (!s.fenced[app] && s.insight >= RF.ringfenceCost(app)) out.push({ type: 'ringfence', app });
-  });
-  if (s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0) {
-    for (let c = 0; c < RF.N; c++) {
-      if (!RF.isInfra(c) && !s.stones[c] && !s.tokens[c] && RF.adjacentToStone(s, c))
-        out.push({ type: 'deploy', cell: c });
-    }
-  }
-  // Isolate edges on the Attacker's route that walls can't cover (known
-  // business flows, allowed exceptions): an outage beats losing the jewel.
-  if (s.insight >= RF.CONFIG.isolateCost && s.wallsLeft > 0) {
-    const t = AI.defenderThreat(s);
-    if (t) for (let k = 0; k + 1 < t.path.length; k++) {
+  const t = AI.defenderThreat(s);
+  const cells = new Set(t ? t.path : []);
+  // Backdoors into fenced apps and on the jewel route.
+  RF.INFRA_CELLS.forEach((c) => { if (!s.hardened[c]) out.push({ type: 'harden', cell: c }); });
+  if (t) {
+    for (let k = 0; k + 1 < t.path.length; k++) {
       const nb = RF.NEIGHBORS[t.path[k]].find((n) => n.cell === t.path[k + 1]);
-      if (nb && RF.wallError(s, nb.key) && !s.walls[nb.key]) out.push({ type: 'isolate', edge: nb.key });
+      if (nb && !s.walls[nb.key]) out.push({ type: 'isolate', edge: nb.key });
     }
   }
-  return out.concat(swapCandidates(s));
-}
-
-// Real swaps of a jewel with a Sensor that the rules allow right now.
-function swapCandidates(s) {
-  const out = [];
-  const cells = Object.keys(s.tokens).map(Number).filter((c) => !s.tokens[c].faceUp);
-  for (const j of cells) {
-    if (s.tokens[j].type !== 'jewel') continue;
-    for (const k of cells) {
-      if (s.tokens[k].type === 'sensor' && !RF.swapError(s, j, k)) out.push({ type: 'swap', a: j, b: k, really: true });
-    }
+  // Allowed flows into fenced apps next to attacker stones.
+  Object.keys(s.allows).forEach((k) => {
+    const e = RF.EDGES[k];
+    if (!s.walls[k] && (s.stones[e.a] || s.stones[e.b])) out.push({ type: 'isolate', edge: k });
+  });
+  for (let c = 0; c < RF.N; c++) {
+    if ((cells.has(c) || RF.adjacentToStone(s, c)) && !RF.isInfra(c) && !s.stones[c] && !s.tokens[c]) out.push({ type: 'deploy', cell: c });
   }
   return out;
 }
 
-// Swap a jewel away when the Attacker has scouted it or is closing in on it,
-// if that makes the jewels clearly harder to reach.
-// eager: swap whenever it gains any distance and the Attacker is within 6.
-function swapIfWorthIt(s, T, eager) {
-  const scouted = Object.keys(s.tokens).some((c) => s.tokens[c].recon && s.tokens[c].type === 'jewel');
-  if (!scouted && T > (eager ? 6 : 5)) return null;
+function respond(s) {
+  const base = danger(s);
+  if (base > RF.CONFIG.attackerActions + 1) return null;
   let best = null;
-  let bestT = eager ? T : T + 1; // normally must gain at least 2 actions of distance
-  for (const a of swapCandidates(s)) {
-    const c = tryAction(s, a);
-    const t = c ? threat(c) : -1;
-    if (t > bestT) { bestT = t; best = a; }
+  let bestD = base;
+  let bestCost = Infinity;
+  for (const a of responses(s)) {
+    const c = act(s, a);
+    if (!c) continue;
+    const d = danger(c);
+    const cost = (s.score - c.score) * 3 + (s.insight - c.insight);
+    if (d > bestD || (d === bestD && best && cost < bestCost)) { best = a; bestD = d; bestCost = cost; }
   }
   return best;
 }
 
-// patient: wait for one round of flow data before locking anything down.
+function plan(s, strategy) {
+  const J = jewelApps(s);
+  const afford = (n) => s.insight >= n;
+  const observe = (list) => list.find((a) => s.observed[a] == null && afford(RF.CONFIG.observeCost));
+  const fenceable = (list, needMap) => list.filter((a) => !s.fenced[a] && !hasStones(s, a) && (!needMap || mapped(s, a)) && afford(size(a)));
+  const depsHard = (a) => RF.APPS[a].uses.every((svc) => s.hardened[RF.INFRA_CELL[svc]]);
+  const hardenFor = (list) => {
+    const svcs = [...new Set(list.flatMap((a) => RF.APPS[a].uses))].map((x) => RF.INFRA_CELL[x]).filter((c) => !s.hardened[c]);
+    return afford(RF.CONFIG.hardenCost) && svcs.length ? { type: 'harden', cell: svcs[0] } : null;
+  };
+  const needMap = strategy !== 'hasty' && strategy !== 'mindless';
+  const others = apps().filter((a) => !J.includes(a)).sort((a, b) => size(a) - size(b));
+
+  if (strategy === 'mindless') {
+    const h = hardenFor(apps());
+    if (h) return h;
+    const f = fenceable(J.concat(others), false)[0];
+    return f ? { type: 'ringfence', app: f } : { type: 'endTurn' };
+  }
+  if (strategy === 'infra') { const h = hardenFor(apps()); if (h) return h; }
+  if (needMap) { const o = observe(J); if (o) return { type: 'observe', app: o }; }
+  if (strategy !== 'territory') { const h = hardenFor(J); if (h) return h; }
+  const fj = fenceable(J, needMap)[0];
+  if (fj && strategy !== 'territory') return { type: 'ringfence', app: fj };
+  if (strategy === 'fortress') {
+    const h = hardenFor(apps());
+    if (h) return h;
+    const t = AI.defenderThreat(s);
+    if (t && afford(RF.CONFIG.deployCost) && s.pool.sensor > 0) {
+      const c = t.path.find((x) => !RF.isInfra(x) && !s.stones[x] && !s.tokens[x]);
+      if (c != null) return { type: 'deploy', cell: c };
+    }
+    return { type: 'endTurn' };
+  }
+  // Territory: observe and fence other apps, preferring ones whose services are hardened.
+  const list = strategy === 'territory' ? J.concat(others).sort((a, b) => size(b) - size(a)) : others;
+  const f = fenceable(list, needMap).sort((a, b) => depsHard(b) - depsHard(a))[0];
+  if (f) return { type: 'ringfence', app: f };
+  if (needMap && Object.values(s.observed).filter((r) => r >= 0).length < 2) { const o = observe(list); if (o) return { type: 'observe', app: o }; }
+  const h = hardenFor(apps());
+  if (h) return h;
+  return { type: 'endTurn' }; // save Insight for next turn
+}
+
 function chooseAction(s, opts) {
   opts = opts || {};
-  const patient = opts.patient !== false;
-  const canFence = !patient || s.round >= RF.CONFIG.flowSeenRound;
+  const strategy = opts.strategy || 'careful';
   if (s.actionsLeft <= 0) return { type: 'endTurn' };
-  const T = threat(s);
-
-  const swap = swapIfWorthIt(s, T, opts.eagerSwap);
-  if (swap) return swap;
-
-  if (T <= 4) {
-    let best = null;
-    let bestT = T;
-    let bestGain = -1;
-    for (const a of candidateResponses(s, canFence)) {
-      const c = tryAction(s, a);
-      if (!c) continue;
-      const t = threat(c);
-      const gain = c.score - s.score;
-      if (t > bestT || (t === bestT && best && gain > bestGain)) {
-        best = a; bestT = t; bestGain = gain;
-      }
-    }
-    if (best) return best;
-    if (s.actionsLeft >= 2 || s.insight === 0) return { type: 'assess' };
+  if (strategy !== 'mindless') {
+    const r = respond(s);
+    if (r) return r;
   }
-
-  // Newly observed flows that current policy blocks will break: allow them.
-  for (const app of Object.keys(RF.APPS)) {
-    if (s.fenced[app] && RF.recommendedExceptions(s, app).some((k) => !RF.isOpen(s, k)) && s.insight >= RF.CONFIG.allowCost)
-      return { type: 'allow', app };
-  }
-
-  // Progress: 1-2-3-4, cheapest points first.
-  const unhardened = RF.INFRA_CELLS.filter((c) => !s.hardened[c]);
-  if (unhardened.length && s.insight >= RF.CONFIG.hardenCost) return { type: 'harden', cell: unhardened[0] };
-
-  const jewelApps = new Set(
-    Object.keys(s.tokens).filter((c) => s.tokens[c].type === 'jewel').map((c) => RF.REGION[c])
-  );
-  const fenceable = Object.keys(RF.APPS)
-    .filter((a) => !s.fenced[a])
-    .sort((a, b) => (jewelApps.has(b) - jewelApps.has(a)) || RF.ringfenceCost(a) - RF.ringfenceCost(b));
-  const affordable = canFence ? fenceable.find((a) => s.insight >= RF.ringfenceCost(a)) : null;
-  const lockDown = (app) => ({ type: 'ringfence', app });
-  if (affordable && jewelApps.has(affordable)) return lockDown(affordable);
-
-  if (affordable) return lockDown(affordable);
-  return { type: 'assess' };
+  return plan(s, strategy);
 }
 
-// The strategy a player falls into when segmentation is "free": ignore the
-// Attacker and the flow data, harden infra, and ring-fence whatever is
-// affordable, with no exceptions.
-function mindless(s) {
-  if (s.actionsLeft <= 0) return { type: 'endTurn' };
-  const infra = RF.INFRA_CELLS.find((c) => !s.hardened[c]);
-  if (infra != null && s.insight >= RF.CONFIG.hardenCost) return { type: 'harden', cell: infra };
-  // A human always knows which apps hold their jewels, so those go first.
-  const jewelApps = new Set(
-    Object.keys(s.tokens).filter((c) => s.tokens[c].type === 'jewel').map((c) => RF.REGION[c])
-  );
-  const unfenced = Object.keys(RF.APPS).filter((a) => !s.fenced[a]);
-  const wanted = unfenced.filter((a) => jewelApps.has(a)).concat(unfenced.filter((a) => !jewelApps.has(a)));
-  const next = wanted[0];
-  const app = next && s.insight >= RF.ringfenceCost(next) ? next : null;
-  if (app) return { type: 'ringfence', app };
-  return { type: 'assess' };
-}
+const mindless = (s) => chooseAction(s, { strategy: 'mindless' });
 
-module.exports = { chooseAction, mindless, threat };
+module.exports = { chooseAction, mindless, danger };

@@ -22,7 +22,7 @@
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const VERSION = 'v0.5';
+  const VERSION = 'v0.6';
   const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
@@ -69,7 +69,7 @@
   };
 
   function newStats() {
-    return { assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, isolate: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
+    return { observe: 0, assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, isolate: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
   }
 
   function newGame() {
@@ -92,8 +92,7 @@
   function startGame() {
     const err = RF.validateSetup(ui.setup);
     if (err) return toast(err);
-    applySwapRule();
-    RF.CONFIG.attackerActions = (AI.LEVELS[settings.level] || AI.LEVELS.normal).actions;
+    RF.applyConfig((AI.LEVELS[settings.level] || AI.LEVELS.normal).config);
     ui.state = RF.newGame(ui.setup, { rng });
     ui.record = {
       version: VERSION,
@@ -114,9 +113,10 @@
     ui.selected = null;
     addLog('sys', 'Round 1');
     addLog('D', 'Your tokens are hidden. The Attacker can see where they are, but not what they are.');
-    addLog('D', 'Security Intelligence is collecting traffic. Everyday business flows appear from round ' + RF.CONFIG.flowSeenRound +
-      '. Month-end flows appear in round ' + RF.CONFIG.rareSeenRound + ' and first run in round ' + RF.CONFIG.rareFlowRound +
-      '. Ring-fencing an app allows the flows you’ve observed and blocks everything else.');
+    addLog('D', 'Observe an app to map its business flows (they show on your next turn). Ring-fence it to allow those flows and block the rest. ' +
+      'Secure apps and hardened services earn Zero Trust points and Insight every round. Reach ' + RF.CONFIG.scoreTarget +
+      ' points, or survive to the end of round ' + RF.CONFIG.roundLimit + '. The Attacker wins by stealing one jewel, or with footholds in ' +
+      RF.CONFIG.ransomwareApps + ' apps (ransomware).');
     render();
   }
 
@@ -295,27 +295,22 @@
     const s = ui.state;
     const won = s.winner === 'defender';
     $('end-title').textContent = won ? 'You defended the datacenter' : 'The Attacker got away with the data';
-    $('end-reason').textContent = s.reason + ' Final score ' + s.score + '/' + RF.CONFIG.scoreTarget +
-      ', jewels stolen ' + s.jewelsTaken + '/' + RF.CONFIG.jewelsToWin + ', round ' + Math.min(s.round, RF.CONFIG.roundLimit) + '.';
+    $('end-reason').textContent = s.reason + ' Zero Trust ' + s.score + '/' + RF.CONFIG.scoreTarget +
+      ', blast radius ' + RF.ransomedApps(s).length + '/' + RF.CONFIG.ransomwareApps + ', round ' + Math.min(s.round, RF.CONFIG.roundLimit) + '.';
     const st = ui.stats;
     const hardened = RF.INFRA_CELLS.filter((c) => s.hardened[c]).length;
     const fenced = Object.keys(s.fenced).filter((a) => s.fenced[a]);
+    const secureEnd = RF.secureApps(s).length;
+    const blast = RF.ransomedApps(s).length;
     const items = [
-      ['Assessed ' + st.assess + '×', 'Stage 1: Security Segmentation Assessment & Report. You can’t segment what you can’t see.'],
-      ['Hardened ' + hardened + ' of 3 infrastructure services', 'Stage 2: Infrastructure Services segmentation for DNS, NTP and LDAP. It closes common C2 and exfiltration paths.'],
-      ['Ring-fenced ' + fenced.length + ' app' + (fenced.length === 1 ? '' : 's') + (fenced.length ? ' (' + fenced.join(', ') + ')' : '') +
-        (st.allow ? ', and added exceptions ' + st.allow + '×' : ''),
-        'Stage 4: Application microsegmentation. Security Intelligence recommends allow rules for the flows it observed; the lockdown publishes them and blocks everything else.'],
-      [st.outages ? 'Caused ' + st.outages + ' outage' + (st.outages > 1 ? 's' : '') + ' (−' + st.outages * RF.CONFIG.outagePenalty + ' score)' : 'Caused no outages',
-        'Locking down before you’ve seen an app’s traffic breaks production. Recommendations built on enough flow history avoid it.'],
-      (() => {
-        const manual = Object.keys(s.allows).filter((k) => s.allows[k] === 'manual');
-        const needless = manual.filter((k) => !s.flows[k]).length;
-        return [manual.length + ' manual exception' + (manual.length === 1 ? '' : 's') + (manual.length ? ', ' + needless + ' of them unnecessary' : ''),
-          'Firewall Rule Analysis flags overly permissive rules like these. Every unneeded allow is a path an attacker can use.'];
-      })(),
-      ['Swapped tokens ' + st.swap + '×', 'Deception: a secret swap turns everything the Attacker scouted back into a guess, at a price.'],
-      ['Isolated ' + st.isolate + ' edge' + (st.isolate === 1 ? '' : 's') + ' in an emergency', 'Incident response: vDefend can quarantine compromised workloads, even when that breaks a business flow.'],
+      ['Observed ' + st.observe + ' app' + (st.observe === 1 ? '' : 's') + ' before acting', 'Security Intelligence: map an application’s traffic before you enforce policy on it.'],
+      ['Hardened ' + hardened + ' of 3 shared services', 'Stage 2: Infrastructure Services. An unhardened DNS, NTP or LDAP is a backdoor into every app that uses it.'],
+      ['Ring-fenced ' + fenced.length + ' app' + (fenced.length === 1 ? '' : 's') + (fenced.length ? ' (' + fenced.join(', ') + ')' : '') + ', ' + secureEnd + ' still secure at the end',
+        'Stage 4: Application microsegmentation. Recommended allow rules for the observed flows, and everything else blocked.'],
+      ['Blast radius: the Attacker reached ' + blast + ' of ' + Object.keys(RF.APPS).length + ' apps', 'Microsegmentation limits how far one compromise can spread.'],
+      [st.outages ? 'Caused ' + st.outages + ' outage' + (st.outages > 1 ? 's' : '') + ' (−' + st.outages * RF.CONFIG.outagePenalty + ' points)' : 'Caused no outages',
+        'Locking down an app you haven’t observed breaks its business flows.'],
+      ['Isolated ' + st.isolate + ' edge' + (st.isolate === 1 ? '' : 's') + ' in an emergency', 'Incident response: quarantine, even when it breaks a business flow.'],
       ['Sensors caught the Attacker ' + st.sensorHits + '×', 'SSP threat prevention: distributed IDS/IPS inspects the traffic the firewall allows.'],
     ];
     $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
@@ -375,6 +370,9 @@
     switch (ui.mode) {
       case 'harden':
         return defenderDo({ type: 'harden', cell: c });
+      case 'observe':
+        if (RF.isInfra(c)) return toast('Pick an application to observe.');
+        return defenderDo({ type: 'observe', app: RF.REGION[c] });
       case 'allow':
         if (RF.isInfra(c)) return toast('Pick an application. Infrastructure is protected by Harden.');
         ui.draft = { app: RF.REGION[c], edges: new Set(RF.recommendedExceptions(s, RF.REGION[c])) };
@@ -484,6 +482,7 @@
     if (!s || ui.busy || s.turn !== 'defender') return out;
     for (let i = 0; i < RF.N; i++) {
       if (ui.mode === 'harden' && RF.isInfra(i) && !s.hardened[i]) out.add(i);
+      if (ui.mode === 'observe' && !RF.isInfra(i) && s.observed[RF.REGION[i]] == null) out.add(i);
       if (ui.mode === 'swap') {
         const t = s.tokens[i];
         if (ui.draft && (ui.draft.a === i || ui.draft.b === i)) out.add(i);
@@ -524,14 +523,32 @@
       const cls = 'cell ' + (infra ? 'infra' + (s && s.hardened[i] ? ' hardened' : '') : 'app-' + reg);
       el('rect', { class: cls, x: cx(i), y: cy(i), width: CS, height: CS }, cells);
       if (infra) {
+        el('rect', { class: 'infra-ring svc-' + reg, x: cx(i) + 3, y: cy(i) + 3, width: CS - 6, height: CS - 6, rx: 6 }, cells);
         el('text', { class: 't-infra', x: cx(i) + CS / 2, y: cy(i) + 15, 'text-anchor': 'middle' }, cells).textContent = reg;
+        if (!(s && s.hardened[i])) {
+          el('text', { class: 't-users', x: cx(i) + CS / 2, y: cy(i) + CS - 8, 'text-anchor': 'middle' }, cells).textContent =
+            '→ ' + RF.INFRA_USERS[reg].join(' ');
+        }
         if (s && s.hardened[i]) {
           const x = cx(i) + CS / 2;
           const y = cy(i) + 22;
           el('path', { class: 'shield', d: `M${x} ${y} l14 5 v10 c0 9 -7 14 -14 17 c-7 -3 -14 -8 -14 -17 v-10 z` }, cells);
         }
       } else if (isFirstCellOfApp(i)) {
-        el('text', { class: 't-app', x: cx(i) + 5, y: cy(i) + 13 }, cells).textContent = reg + (s && s.fenced[reg] ? ' ◎' : '');
+        let mark = '';
+        if (s && s.fenced[reg]) mark += ' ◎';
+        if (s && s.observed[reg] === -1) mark += ' 👁';
+        else if (s && s.observed[reg] != null) mark += ' 👁…';
+        el('text', { class: 't-app', x: cx(i) + 5, y: cy(i) + 13 }, cells).textContent = reg + mark;
+        // Dots: the shared services this app depends on.
+        RF.APPS[reg].uses.forEach((svc, n) => {
+          const d = el('circle', { class: 'dep svc-' + svc, cx: cx(i) + 8 + n * 10, cy: cy(i) + CS - 8, r: 3.8 }, cells);
+          el('title', {}, d).textContent = 'Uses ' + svc + (s && !s.hardened[RF.INFRA_CELL[svc]] ? ' (unhardened: a backdoor)' : ' (hardened)');
+        });
+      }
+      // Compromised apps are tinted: that's the blast radius.
+      if (s && !infra && RF.APP_CELLS[reg].some((c) => s.stones[c])) {
+        el('rect', { class: 'compromised', x: cx(i), y: cy(i), width: CS, height: CS }, cells);
       }
       if (reg === 'H') {
         const gx = cx(i) + CS - 11;
@@ -705,11 +722,13 @@
     const t = AI.defenderThreat(s);
     box.hidden = false;
     if (!t) {
-      box.className = 'threat-box calm';
-      box.innerHTML = '<b>Threat:</b> the Attacker has no route to your jewels right now.';
+      const rt = AI.ransomThreat(s);
+      box.className = 'threat-box ' + (rt.danger ? 'danger' : 'calm');
+      box.innerHTML = '<b>Threat:</b> the Attacker has no route to your jewels right now.<div class="small" style="margin-top:6px"><b>Blast radius:</b> footholds in ' +
+        rt.held.length + ' of the ' + rt.need + ' apps it needs' + (rt.reachable.length ? '; it could add about ' + rt.reachable.length + ' more next turn (' + rt.reachable.join(', ') + ')' : '') + '.</div>';
       return;
     }
-    const lvl = threatLevel(t);
+    const lvl = AI.ransomThreat(s).danger && threatLevel(t) !== 'danger' ? 'danger' : threatLevel(t);
     const where = '<b>' + RF.cellName(t.cell) + '</b>';
     let text;
     if (t.nextTurn) text = '⚠ <b>Threat:</b> it has found your jewel on ' + where + ' and can steal it on its next turn.';
@@ -717,6 +736,10 @@
     else if (t.actions - 1 <= RF.CONFIG.attackerActions) text = '<b>Threat:</b> it could reach your jewel on ' + where + ' next turn, and steal it the turn after.';
     else text = '<b>Threat:</b> the Attacker is about ' + t.actions + ' actions from stealing your jewel on ' + where + '.';
     let html = text + ' <span class="muted small">The dashed route is the way it would go if it knew where the jewel is.</span>';
+    const rt = AI.ransomThreat(s);
+    html += '<div class="small" style="margin-top:6px"><b>Blast radius:</b> footholds in ' + rt.held.length + ' of the ' + rt.need +
+      ' apps it needs' + (rt.reachable.length ? '; it could add about ' + rt.reachable.length + ' more next turn (' + rt.reachable.join(', ') + ')' : '') +
+      (rt.danger ? '. <b class="bad">Ransomware is a real risk next turn.</b>' : '.') + '</div>';
     if (lvl !== 'calm' && s.actionsLeft > 0 && !ui.busy) {
       const sugg = AI.suggestResponses(s).slice(0, 3);
       if (sugg.length) {
@@ -870,21 +893,25 @@
     }
 
     const scorePct = Math.max(0, Math.min(100, (100 * s.score) / RF.CONFIG.scoreTarget));
-    const jewelPct = (100 * s.jewelsTaken) / RF.CONFIG.jewelsToWin;
+    const secure = RF.secureApps(s).length;
+    const hardenedN = RF.INFRA_CELLS.filter((c) => s.hardened[c]).length;
+    const ztRate = secure * RF.CONFIG.ztPerSecureApp + hardenedN * RF.CONFIG.ztPerHardened;
+    const income = RF.CONFIG.incomeBase + secure * RF.CONFIG.incomePerSecureApp;
+    const blast = RF.ransomedApps(s).length;
+    const blastPct = Math.min(100, (100 * blast) / RF.CONFIG.ransomwareApps);
     const hiddenJewels = Object.values(s.tokens).filter((t) => t.type === 'jewel').length;
     $('meters').innerHTML =
-      meter('Segmentation Score', s.score + '<small> / ' + RF.CONFIG.scoreTarget + '</small>', scorePct, '') +
-      meter('Jewels stolen', s.jewelsTaken + '<small> / ' + RF.CONFIG.jewelsToWin + '</small>', jewelPct, 'danger') +
-      meter('Insight', String(s.insight), null, '') +
+      meter('Zero Trust points', s.score + '<small> / ' + RF.CONFIG.scoreTarget + ' · +' + ztRate + '/round</small>', scorePct, '') +
+      meter('Blast radius', blast + '<small> / ' + RF.CONFIG.ransomwareApps + ' apps</small>', blastPct, 'danger') +
+      meter('Insight', s.insight + '<small> · +' + income + ' next turn</small>', null, '') +
       meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
-      '<div class="meter wide"><span>Flows observed <b>' + Object.keys(s.discovered).length + '</b></span><span>Outages <b' +
-      (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>Walls <b>' + s.wallsLeft +
-      '</b></span><span>Sensors <b>' + s.pool.sensor + '</b></span><span>Swaps left <b>' +
-      Math.max(0, Math.min(RF.CONFIG.swapsPerGame, 99) - s.swapsUsed) + (RF.CONFIG.swapsPerGame >= 99 ? '+' : '') +
-      '</b></span><span>Jewels hidden <b>' + hiddenJewels + '</b></span></div>';
+      '<div class="meter wide"><span>Secure apps <b>' + secure + '</b></span><span>Hardened <b>' + hardenedN + '/3</b></span><span>Outages <b' +
+      (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>Sensors <b>' + s.pool.sensor +
+      '</b></span><span>Walls <b>' + s.wallsLeft + '</b></span><span>Jewels hidden <b>' + hiddenJewels + '</b></span></div>';
 
     // Action buttons.
     const can = {
+      observe: Object.keys(RF.APPS).some((a) => s.observed[a] == null) && s.insight >= RF.CONFIG.observeCost,
       assess: true,
       harden: s.insight >= RF.CONFIG.hardenCost && RF.INFRA_CELLS.some((c) => !s.hardened[c]),
       segment: s.insight >= RF.CONFIG.segmentCost && s.wallsLeft > 0 && RF.wallableEdges(s).length > 0,
@@ -954,20 +981,25 @@
       const blocked = border.filter((k) => !s.allows[k] && !s.walls[k] && RF.isOpen(s, k)).length;
       const rec = RF.recommendedExceptions(s, app).length;
       const cost = RF.ringfenceCost(app);
-      const early = s.round < RF.CONFIG.flowSeenRound;
-      const noRare = s.round < RF.CONFIG.rareSeenRound;
+      const early = s.observed[app] !== -1;
+      const noRare = false;
       html = '<b>Lock down app ' + app + ' (' + esc(RF.APPS[app].name) + ')</b><br>Security Intelligence will allow <b>' + rec + '</b> observed flow' + (rec === 1 ? '' : 's') +
         (open ? ' (' + open + ' exception' + (open === 1 ? '' : 's') + ' already open)' : '') + '. ' + (blocked - rec) + ' other edge' + (blocked - rec === 1 ? '' : 's') + ' will be blocked.' +
-        (early ? '<br><span class="bad">⚠ No traffic history yet: any business flow here will break (−' + RF.CONFIG.outagePenalty + ' score each).</span>'
+        (early ? '<br><span class="bad">⚠ You haven’t observed this app' + (s.observed[app] != null ? ' yet (its flows show next turn)' : '') +
+          ': any business flow here will break (−' + RF.CONFIG.outagePenalty + ' points each).</span>'
           : noRare ? '<br><span class="muted small">Month-end flows aren’t visible until round ' + RF.CONFIG.rareSeenRound + '. If one crosses this border it will break when it first runs.</span>' : '') +
         '<div class="row"><button class="btn primary" data-hint="fence" type="button"' + (s.insight >= cost ? '' : ' disabled') + '>Lock down (' + cost +
         ' Insight)</button><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
     } else if (ui.mode === 'ringfence') {
-      html = '<b>4 Ring-fence.</b> Tap an app to preview the lockdown. Observed flows are allowed automatically, everything else is blocked. Cost = its size. Affordable now: ' +
+      html = '<b>◎ Ring-fence.</b> Tap an app to preview the lockdown. Observed flows are allowed automatically, everything else is blocked. ' +
+        'A secure (clean) fenced app earns +1 Zero Trust and +1 Insight every round. Remember its shared services: an unhardened one is still a backdoor in. Affordable now: ' +
         (Object.keys(RF.APPS).filter((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a))
           .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
     } else if (ui.mode === 'deploy') {
       html = 'Tap an empty cell to place a face-down Sensor (' + s.pool.sensor + ' left). The Attacker sees you place it, so it knows it’s a Sensor, unless you later swap it.' + cancelBtn();
+    } else if (ui.mode === 'observe') {
+      html = '<b>👁 Observe.</b> Tap an app. Security Intelligence maps its business flows, and they show at the start of your next turn. ' +
+        'Ring-fencing an observed app allows exactly those flows, with no outages.' + cancelBtn();
     } else if (ui.mode === 'isolate') {
       const k = ui.draft && ui.draft.edge;
       if (!k) {
@@ -1115,9 +1147,7 @@
     });
     renderPlaytestCount();
 
-    const swapRule = $('set-swap');
-    swapRule.value = settings.swapRule;
-    swapRule.addEventListener('change', () => { settings.swapRule = swapRule.value; saveSettings(); toast('Swap rule applies from your next game.'); });
+
     level.value = settings.level;
     speed.value = settings.speed;
     reasoning.checked = !!settings.reasoning;
@@ -1135,7 +1165,7 @@
         return render();
       }
       if (ui.phase !== 'play') return;
-      const map = { 1: 'assess', 2: 'harden', 3: 'segment', 4: 'ringfence', 5: 'allow', 6: 'deploy', 7: 'swap', 8: 'isolate' };
+      const map = { 1: 'observe', 2: 'harden', 3: 'ringfence', 4: 'deploy', 5: 'isolate' };
       if (map[e.key]) {
         const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
         if (b && !b.disabled) pickMode(map[e.key]);

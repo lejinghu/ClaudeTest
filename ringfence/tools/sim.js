@@ -22,8 +22,8 @@ const args = process.argv.slice(2);
 const games = parseInt(args.find((a) => /^\d+$/.test(a)) || '100', 10);
 const level = args.find((a) => a === 'easy' || a === 'normal' || a === 'hard') || 'normal';
 const fuzz = args.includes('--fuzz');
-// Each AI level brings its own action count, unless attackerActions= is given.
-RF.CONFIG.attackerActions = AI.LEVELS[level].actions;
+// Each AI level brings its own rule settings; key=value arguments override them.
+RF.applyConfig(AI.LEVELS[level].config);
 // Try balance changes without editing rules.js, e.g. allowCost=0 scoreTarget=9
 args.filter((a) => /^\w+=[\d.]+$/.test(a)).forEach((a) => {
   const [k, v] = a.split('=');
@@ -31,7 +31,10 @@ args.filter((a) => /^\w+=[\d.]+$/.test(a)).forEach((a) => {
   RF.CONFIG[k] = parseFloat(v);
   console.log('CONFIG.' + k + ' = ' + v);
 });
-const defenderKind = args.includes('--mindless') ? 'mindless' : args.includes('--hasty') ? 'hasty' : 'patient';
+// Defender strategy: --strategy=careful|territory|fortress|infra|hasty|mindless
+// (--mindless and --hasty still work as shorthands).
+const stratArg = (args.find((a) => a.startsWith('--strategy=')) || '').split('=')[1];
+const defenderKind = stratArg || (args.includes('--mindless') ? 'mindless' : args.includes('--hasty') ? 'hasty' : 'careful');
 
 function checkInvariants(s) {
   const onBoard = s.stones.reduce((a, b) => a + b, 0);
@@ -65,8 +68,7 @@ function playGame(seed, defenderPick, attackerPick) {
 }
 
 const aiAttacker = (s, rng) => AI.chooseAction(s, { level, rng }).action;
-const botDefender = defenderKind === 'mindless' ? (s) => Bot.mindless(s)
-  : (s) => Bot.chooseAction(s, { patient: defenderKind === 'patient', eagerSwap: args.includes('--eager-swap') });
+const botDefender = (s) => Bot.chooseAction(s, { strategy: defenderKind });
 
 function randomAttacker(s, rng) {
   const legal = RF.legalAttackerActions(s);
@@ -85,12 +87,13 @@ function randomDefender(s, rng) {
     opts.push({ type: 'allow', app, edges: border.filter(() => rng() < 0.3) });
   });
   opts.push({ type: 'deploy', cell: Math.floor(rng() * RF.N) });
+  Object.keys(RF.APPS).forEach((app) => opts.push({ type: 'observe', app }));
   const allEdges = Object.keys(RF.EDGES);
   opts.push({ type: 'isolate', edge: allEdges[Math.floor(rng() * allEdges.length)] });
   const tok = Object.keys(s.tokens).map(Number);
   if (tok.length > 1) opts.push({ type: 'swap', a: tok[Math.floor(rng() * tok.length)], b: tok[Math.floor(rng() * tok.length)], really: rng() < 0.5 });
   const legal = opts.filter((a) => RF.act(RF.clone(s), a).ok);
-  return legal[Math.floor(rng() * legal.length)];
+  return legal.length ? legal[Math.floor(rng() * legal.length)] : { type: 'endTurn' };
 }
 
 if (fuzz) {
@@ -102,6 +105,7 @@ const t0 = Date.now();
 let attackerWins = 0;
 let outages = 0;
 let swaps = 0;
+let ransom = 0;
 const rounds = [];
 const reasons = {};
 const mix = {};
@@ -110,6 +114,7 @@ for (let i = 0; i < games; i++) {
   if (s.winner === 'attacker') attackerWins++;
   outages += s.outages;
   swaps += s.swapsUsed;
+  if (/Ransomware/.test(s.reason)) ransom++;
   rounds.push(Math.min(s.round, RF.CONFIG.roundLimit));
   const r = s.winner + ': ' + s.reason.replace(/\d+/g, 'N');
   reasons[r] = (reasons[r] || 0) + 1;
@@ -120,7 +125,7 @@ console.log(`${games} games, ${defenderKind} Defender vs ${level} AI Attacker ($
 console.log(`Attacker win rate: ${((100 * attackerWins) / games).toFixed(1)}%`);
 console.log(`Median round at game end: ${rounds[Math.floor(games / 2)]}`);
 console.log(`Outages per game: ${(outages / games).toFixed(2)}`);
-console.log(`Swaps per game: ${(swaps / games).toFixed(2)}`);
+console.log(`Attacker wins by ransomware: ${ransom} of ${attackerWins}`);
 console.log('Outcomes:');
 Object.entries(reasons).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => console.log(`  ${n.toString().padStart(4)}  ${k}`));
 console.log('Action mix:');

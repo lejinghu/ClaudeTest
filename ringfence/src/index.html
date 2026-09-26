@@ -31,7 +31,9 @@
       <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
       <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
       <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
-      <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened infra)</li>
+      <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened DNS)</li>
+      <li><span class="lg lg-dep"></span>Shared services an app uses (NTP, DNS, LDAP)</li>
+      <li><span class="lg lg-comp"></span>Compromised app (blast radius)</li>
       <li><span class="lg lg-odds">37%</span>Attacker’s jewel odds for a token</li>
     </ul>
   </section>
@@ -58,13 +60,10 @@
 
     <div id="action-panel" class="card" hidden>
       <div class="actions" id="actions">
-        <button class="act" data-action="assess" type="button"><span class="num">1</span><span class="lbl">Assess</span><span class="cost">+2 Insight</span></button>
-        <button class="act" data-action="harden" type="button"><span class="num">2</span><span class="lbl">Harden</span><span class="cost">1 Insight</span></button>
-        <button class="act" data-action="segment" type="button"><span class="num">3</span><span class="lbl">Segment</span><span class="cost">Any walls · 1 Insight / 2</span></button>
-        <button class="act" data-action="ringfence" type="button"><span class="num">4</span><span class="lbl">Ring-fence</span><span class="cost">Insight = app size</span></button>
-        <button class="act" data-action="allow" type="button"><span class="num">+</span><span class="lbl">Allow</span><span class="cost">Add exceptions</span></button>
-        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Deploy</span><span class="cost">1 Insight · Sensor</span></button>
-        <button class="act" data-action="swap" type="button"><span class="num">⇄</span><span class="lbl">Swap</span><span class="cost">Secret, costly</span></button>
+        <button class="act" data-action="observe" type="button"><span class="num">👁</span><span class="lbl">Observe</span><span class="cost">Map an app’s flows · free</span></button>
+        <button class="act" data-action="harden" type="button"><span class="num">🛡</span><span class="lbl">Harden</span><span class="cost">Close a backdoor · 2 Insight</span></button>
+        <button class="act" data-action="ringfence" type="button"><span class="num">◎</span><span class="lbl">Ring-fence</span><span class="cost">Secure an app · 3 Insight</span></button>
+        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Sensor</span><span class="cost">IDS/IPS trap · 1 Insight</span></button>
         <button class="act" data-action="isolate" type="button"><span class="num">⛔</span><span class="lbl">Isolate</span><span class="cost">Emergency block · 2 Insight</span></button>
       </div>
       <div id="hint" class="hint"></div>
@@ -83,9 +82,9 @@
       <summary>Settings</summary>
       <label>Attacker AI
         <select id="set-level">
-          <option value="easy">Easy: script kiddie (3 actions)</option>
-          <option value="normal">Normal: ransomware crew (4 actions)</option>
-          <option value="hard">Hard: APT (4 actions, plans ahead)</option>
+          <option value="easy">Easy: script kiddie</option>
+          <option value="normal">Normal: ransomware crew</option>
+          <option value="hard">Hard: APT (plans ahead)</option>
         </select>
       </label>
       <label>AI speed
@@ -93,12 +92,6 @@
           <option value="1100">Slow</option>
           <option value="600">Normal</option>
           <option value="200">Fast</option>
-        </select>
-      </label>
-      <label>Swap cost rule (playtest)
-        <select id="set-swap">
-          <option value="insight">3 Insight, max 2 per game</option>
-          <option value="score">−1 score each, no limit</option>
         </select>
       </label>
       <label class="check"><input type="checkbox" id="set-threat" /> Highlight the Attacker’s quickest route to your jewels</label>
@@ -149,40 +142,27 @@
 <div id="overlay-rules" class="overlay" hidden>
   <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
     <h2 id="rules-title">How to play</h2>
-    <p>You are the <strong>Defender</strong>. The AI is the <strong>Attacker</strong>. Each round you take 3 actions, then the Attacker takes 3 (Easy) or 4 (Normal, Hard).</p>
+    <p>You are the <strong>Defender</strong> of a datacenter. The AI is the <strong>Attacker</strong>. Each round you take 3 actions, then it takes 3.</p>
     <ul>
-      <li><strong>You win</strong> at the end of your turn with a <strong>Segmentation Score of 7</strong>, or if round 8 ends.</li>
-      <li><strong>The Attacker wins</strong> by exfiltrating <strong>one Crown Jewel</strong>.</li>
+      <li><strong>You win</strong> by reaching the <strong>Zero Trust target</strong> (18 points on Normal), or by surviving to the end of round 8.</li>
+      <li><strong>The Attacker wins</strong> by stealing <strong>one Crown Jewel</strong>, or by getting footholds in <strong>7 apps</strong>: ransomware across a huge blast radius.</li>
     </ul>
-    <p class="muted small">A game takes about 5 minutes.</p>
-    <h3>Business flows are hidden</h3>
-    <p>Each game, apps talk to each other over hidden <strong>business flows</strong>. Security Intelligence reveals them as traffic history builds up: everyday flows from <strong>round 2</strong>, month-end flows in <strong>round 3</strong>. Month-end flows first run in round 4.</p>
-    <p>If your policy blocks a real flow while it runs, that’s an <strong>outage</strong>: <strong>−2 score</strong>, and an emergency allow rule opens the edge again, for the Attacker too.</p>
-    <h3>Your actions: DFW 1-2-3-4, plus SSP</h3>
+    <h3>How you score: territory</h3>
+    <p>At the start of each of your turns, every <strong>secure app</strong> (ring-fenced, with no attacker inside) and every <strong>hardened service</strong> gives <strong>+1 Zero Trust point</strong>. You also get <strong>+3 Insight</strong>, plus 1 per secure app. Secure early and your economy grows.</p>
+    <h3>Your actions</h3>
     <ul class="rules-actions">
-      <li><strong>1 Assess</strong>: +2 Insight. Insight pays for everything else. <em>Stage 1: Segmentation Assessment.</em></li>
-      <li><strong>2 Harden</strong> an infrastructure service (NTP, DNS, LDAP) for 1 Insight. It evicts any stone there, closes the hub shortcut, and is no longer an exit. <strong>+1 score.</strong> <em>Stage 2: Infrastructure Services.</em></li>
-      <li><strong>3 Segment</strong>: place any number of walls on border edges (between apps, or next to infra) in one action, for 1 Insight per 2 walls. You have 12 walls in all. Good for cutting an attacker chain.</li>
-      <li><strong>4 Ring-fence</strong> an app for Insight equal to its size. Security Intelligence’s recommendation is published with it: every <em>observed</em> flow on the app’s border gets an allow rule, and everything else is blocked. <strong>+1 score.</strong> Afterwards you can also wall edges inside it. <em>Stage 4: App microsegmentation.</em></li>
-      <li><strong>+ Allow</strong>: add any number of exceptions in one action, for flows found after the lockdown (free) or manual guesses (1 Insight each).</li>
-      <li><strong>★ Deploy</strong> a face-down Sensor on an empty cell for 1 Insight. <em>SSP: IDS/IPS inspects the traffic you allow.</em></li>
-      <li><strong>⛔ Isolate</strong>: an emergency block on <em>any</em> edge, even a known business flow, for 2 Insight. Breaking a running flow is an outage (−2 score) that stays broken. Use it when nothing else can stop the Attacker. <em>Incident response: quarantine.</em></li>
-      <li><strong>⇄ Swap</strong> two face-down tokens, or only pretend to. The Attacker can’t tell, so everything it scouted on those two becomes a guess. It’s costly (3 Insight, max 2 per game, or −1 score with the other rule), once per turn, and not next to an attacker stone.</li>
+      <li><strong>👁 Observe</strong> an app (free, one action). Security Intelligence maps its business flows, and they show on your next turn. <em>Stage 1: assess before you enforce.</em></li>
+      <li><strong>🛡 Harden</strong> a shared service (2 Insight). The dots on each app show which of NTP, DNS and LDAP it uses. An <strong>unhardened service is a backdoor</strong> into every app that uses it, even ring-fenced ones, and DNS is also an exit (tunnelling). <em>Stage 2: infrastructure services.</em></li>
+      <li><strong>◎ Ring-fence</strong> an app (3 Insight). The observed flows get allow rules and everything else is blocked. Fencing an app you haven’t observed breaks its flows: an outage, −2 points. <em>Stage 4: microsegmentation.</em></li>
+      <li><strong>★ Sensor</strong> (1 Insight): a face-down IDS/IPS trap. A stone that steps on it is removed, and the Attacker’s turn ends. <em>SSP threat prevention.</em></li>
+      <li><strong>⛔ Isolate</strong> (2 Insight): an emergency block on any edge, even a business flow. Breaking a running flow costs −2 points. <em>Incident response.</em></li>
     </ul>
-    <p class="muted small">The real workflow: observe traffic → publish exceptions for valid flows → lock down everything else. Lock down before Security Intelligence has seen the traffic and you break production.</p>
     <h3>The Attacker</h3>
     <ul>
-      <li><strong>Breach</strong> (once per turn): place a stone on row 1 or the internet-facing storefront H.</li>
-      <li><strong>Spread</strong>: place a stone next to one of theirs across an open edge. Unhardened NTP, DNS and LDAP all connect to each other (the hub). Getting through a ring-fence over an <em>allowed</em> flow means exploiting that service, which costs <strong>2 actions</strong>. That’s why Sensors (IDS/IPS) on allowed flows matter.</li>
-      <li><strong>Recon</strong>: secretly look at a face-down token next to one of their stones.</li>
-      <li><strong>Exfil</strong>: take a revealed Jewel whose stone is connected to an <em>exit</em>: row 1, storefront H, or unhardened infra. Staging the data takes a turn, so a jewel found this turn can only be stolen next turn. You always get one turn to respond.</li>
+      <li><strong>Breach</strong> (once per turn) into row 1 or the storefront H. <strong>Spread</strong> to a neighbouring cell. Moving into a <em>different</em> app, through an allowed flow, or through a service backdoor costs extra actions.</li>
+      <li><strong>Recon</strong> peeks at a face-down token. <strong>Exfil</strong> steals a revealed jewel connected to an exit, but not on the turn it was found, so you always get a turn to respond.</li>
     </ul>
-    <h3>Tokens and capture</h3>
-    <ul>
-      <li>A stone that enters a <strong>Jewel</strong> reveals it. A <strong>Sensor</strong> removes the stone and ends the Attacker’s turn. The red % under each token is the Attacker’s current jewel odds for it.</li>
-      <li><strong>Quarantine</strong>: an attacker group with no open edge to an empty cell is removed. <strong>+1 score.</strong></li>
-    </ul>
-    <p class="muted small">Shortcuts: 1–8 pick an action · Esc cancel · U undo · E end turn.</p>
+    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>

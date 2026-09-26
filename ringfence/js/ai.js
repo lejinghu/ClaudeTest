@@ -27,12 +27,12 @@
   const INF = 1e9;
 
   const LEVELS = {
-    // actions: the Attacker's actions per turn at this difficulty.
-    easy: { noise: 30, robust: false, recon: false, reconThreshold: 1, depth: 1, actions: 3 },
-    normal: { noise: 1.5, robust: true, recon: true, reconThreshold: 0.3, depth: 1, actions: 4 },
+    // config: rule settings for this difficulty (see RF.applyConfig).
+    easy: { noise: 30, robust: false, recon: false, reconThreshold: 1, depth: 1, config: { attackerActions: 3, ransomwareApps: 8, startInsight: 6 } },
+    normal: { noise: 1.5, robust: true, recon: true, reconThreshold: 0.3, depth: 1, config: { attackerActions: 3 } },
     // Hard searches two actions ahead within its turn (expectimax over what
     // a face-down token might be), so Recon is valued for what it reveals.
-    hard: { noise: 0.5, robust: true, recon: false, reconThreshold: 1, depth: 2, beam: 6, actions: 4 },
+    hard: { noise: 0.5, robust: true, recon: false, reconThreshold: 1, depth: 2, beam: 6, config: { attackerActions: 3, ransomwareApps: 8, startInsight: 3 } },
   };
 
   const W = {
@@ -42,6 +42,8 @@
     lostAction: 18, // value of each action lost when a Sensor ends the turn
     stone: 1, // small cost per stone, so it doesn't sprawl for nothing
     pass: 4, // penalty for ending the turn with actions left
+    ransomHeld: 160, // per ring-fenced app holding one of our stones
+    ransomNear: 110, // value of a fenced app we could reach, scaled by 1/(1+d)
   };
 
   // --------------------------------------------------------------- beliefs
@@ -75,7 +77,7 @@
       const b = bel[i];
       return 1 + (b && i !== target ? b.pS * W.sensorRisk : 0);
     };
-    const isExit = (i) => RF.rowOf(i) === 0 || RF.REGION[i] === 'H' || (RF.isInfra(i) && !hard(i));
+    const isExit = (i) => RF.rowOf(i) === 0 || RF.REGION[i] === 'H' || (RF.REGION[i] === 'DNS' && !hard(i));
 
     const dist = new Array(RF.N).fill(INF);
     const prev = new Array(RF.N).fill(-1);
@@ -94,9 +96,8 @@
       done[u] = true;
       for (const w of RF.attackerNeighbors(v, u, extra)) {
         if (done[w]) continue;
-        // Exploiting an allowed service costs extra actions to cross.
-        const nb = !v.stones[w] && RF.NEIGHBORS[u].find((n) => n.cell === w);
-        const d = dist[u] + nodeCost(w) + (nb ? RF.crossExtra(v, nb.key) : 0);
+        // Exploiting an allowed service or a backdoor costs extra actions.
+        const d = dist[u] + nodeCost(w) + (v.stones[w] ? 0 : RF.linkExtra(v, u, w));
         if (d < dist[w]) {
           dist[w] = d;
           prev[w] = u;
@@ -152,7 +153,50 @@
       sum += val * (weights[n] || 0.05);
     });
     const stones = v.stones.reduce((a, b) => a + b, 0);
-    return v.jewelsTaken * 1000 + sum - W.stone * stones;
+    return v.jewelsTaken * 1000 + sum + ransomValue(v, bel) - W.stone * stones;
+  }
+
+  // Second plan: ransomware. Get footholds in enough apps (blast radius).
+  function ransomValue(v, bel) {
+    const need = RF.CONFIG.ransomwareApps;
+    if (!need) return 0;
+    const apps = Object.keys(RF.APPS);
+    const held = apps.filter((a) => RF.APP_CELLS[a].some((c) => v.stones[c]));
+    if (held.length >= need) return 1e6;
+    const open = apps.filter((a) => !held.includes(a)).map((a) => reachCost(v, bel, RF.APP_CELLS[a])).sort((x, y) => x - y);
+    let val = held.length * W.ransomHeld;
+    open.slice(0, need - held.length).forEach((d) => { if (d < INF) val += W.ransomNear / (1 + d); });
+    return val;
+  }
+
+  // Fewest stones to place to get one onto any cell in `targets`, starting
+  // from our stones (free) or a fresh breach.
+  function reachCost(v, bel, targets) {
+    const nodeCost = (i) => {
+      if (v.stones[i]) return 0;
+      if (RF.isInfra(i) && v.hardened[i]) return INF;
+      const b = bel[i];
+      return 1 + (b ? b.pS * W.sensorRisk : 0);
+    };
+    const dist = new Array(RF.N).fill(INF);
+    const done = new Array(RF.N).fill(false);
+    for (let i = 0; i < RF.N; i++) {
+      if (v.stones[i]) dist[i] = 0;
+      else if (RF.isBreachable(i) && RF.canEnter(v, i)) dist[i] = nodeCost(i);
+    }
+    const want = new Set(targets);
+    for (;;) {
+      let u = -1;
+      for (let i = 0; i < RF.N; i++) if (!done[i] && dist[i] < INF && (u < 0 || dist[i] < dist[u])) u = i;
+      if (u < 0) return INF;
+      if (want.has(u)) return dist[u];
+      done[u] = true;
+      for (const w of RF.attackerNeighbors(v, u)) {
+        if (done[w]) continue;
+        const d = dist[u] + nodeCost(w) + (v.stones[w] ? 0 : RF.linkExtra(v, u, w));
+        if (d < dist[w]) dist[w] = d;
+      }
+    }
   }
 
   // Possible results of an action as seen by the Attacker:
@@ -376,11 +420,13 @@
         }
       }
     }
+    const enabled = RF.CONFIG.enabledActions;
+    const allowed = (c) => !enabled || enabled.includes(c.action.type);
     const baseRank = t.rank;
     const out = [];
     const seen = new Set();
     for (const cand of cands) {
-      if (seen.has(cand.label)) continue;
+      if (seen.has(cand.label) || !allowed(cand)) continue;
       seen.add(cand.label);
       const c = defenderKnown(s);
       if (!RF.act(c, cand.action).ok) continue;
@@ -398,5 +444,25 @@
     return out;
   }
 
-  return { chooseAction, evaluate, beliefs, pathToExit, worstCut, defenderKnown, defenderThreat, suggestResponses, LEVELS, WEIGHTS: W };
+  // Ring-fenced apps the Attacker holds, and the ones it could enter on its
+  // next turn (judged from what the Attacker can know).
+  function ransomThreat(s) {
+    const v = RF.attackerView(s);
+    const bel = beliefs(v);
+    const held = RF.ransomedApps(s);
+    // New apps it could add in one turn: take the cheapest ones while their
+    // costs still fit in its actions (a rough but fair estimate).
+    const costs = Object.keys(RF.APPS).filter((a) => !held.includes(a))
+      .map((a) => ({ a, c: reachCost(v, bel, RF.APP_CELLS[a]) })).filter((x) => x.c < INF).sort((x, y) => x.c - y.c);
+    const reachable = [];
+    let budget = RF.CONFIG.attackerActions;
+    for (const x of costs) {
+      if (x.c > budget) break;
+      budget -= x.c;
+      reachable.push(x.a);
+    }
+    return { held, reachable, need: RF.CONFIG.ransomwareApps, danger: held.length + reachable.length >= RF.CONFIG.ransomwareApps };
+  }
+
+  return { chooseAction, evaluate, beliefs, pathToExit, worstCut, reachCost, defenderKnown, defenderThreat, ransomThreat, suggestResponses, LEVELS, WEIGHTS: W };
 });

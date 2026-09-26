@@ -3,8 +3,94 @@
 *A two-player asymmetric strategy game about lateral movement and Zero Trust.
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
-Status: design draft v0.5. Rules are complete and playable on paper. Numbers
-are starting values for playtesting (Section 11).
+Status: design draft **v0.6 (territory)**. Numbers are starting values for
+playtesting (Section 11). **Section 0 below is the current rule set.**
+Sections 1–10 describe earlier versions and keep their history. The
+v0.5 prototype is kept as `ringfence/v05.html` for comparison.
+
+## 0. v0.6 at a glance: RINGFENCE as a territory game
+
+**Why it changed.** Playtest feedback on v0.5: *"There is no grand strategy.
+I just gain Insight and randomly block or allow,"* and *"infra feels
+random, just some place to click first."* The v0.5 turns were one-offs:
+Insight was a flat, wait-for-it economy; the facts that mattered (flows,
+tokens) were hidden, so choices felt random; and the three services were
+interchangeable. v0.6 makes positions pay off over time, and makes each
+decision depend on the board.
+
+**Goal**
+- **Defender:** reach the Zero Trust target (18 on Normal), or survive to
+  the end of round 8.
+- **Attacker:** steal **one** jewel, or get footholds in **7 of the 11
+  apps**: ransomware, meaning the blast radius was too big.
+
+**Territory scoring.** At the start of each Defender turn from round 2:
+- **+1 Zero Trust** per *secure app* (ring-fenced, no attacker inside) and
+  per hardened service.
+- **+3 Insight**, plus 1 per secure app.
+- Securing early grows your economy: engine-building, as in Netrunner.
+
+**Shared services with visible dependents.**
+- Each app uses one or two of NTP (A B C D), DNS (D F G J K) and LDAP
+  (C E H J L). Coloured dots on the board show which.
+- An **unhardened service is a backdoor**: an Attacker stone can pass
+  between the service and any app that uses it, even a ring-fenced one,
+  because ring-fences allow infra traffic. Only Harden stops it.
+- Only **DNS** is an exfiltration exit (tunnelling).
+- Which service to harden first depends on where your jewels and territory
+  are.
+
+**Defender actions (3 per turn)**
+
+| Action | Cost | Effect | Product stage |
+|---|---|---|---|
+| 👁 Observe | an action | Security Intelligence maps an app's flows; they show on your next turn | Stage 1: assess before you enforce |
+| 🛡 Harden | 2 Insight | Close a service's backdoor (and DNS tunnelling); evict any stone on it | Stage 2: infrastructure services |
+| ◎ Ring-fence | 3 Insight | Allow the app's observed flows, block the rest; unobserved flows break (outage −2) | Stage 4: microsegmentation |
+| ★ Sensor | 1 Insight | Face-down IDS/IPS trap: removes the stone, ends the Attacker's turn | SSP threat prevention |
+| ⛔ Isolate | 2 Insight | Emergency block on any edge, even a business flow (−2 if it breaks one) | Incident response |
+
+**Attacker.** 3 actions per turn.
+- Breach (once per turn) into row 1 or the storefront, then spread.
+- Moving into a *different* app, through an allowed flow, or through a
+  service backdoor costs **+1 action** each.
+- Recon peeks at a token.
+- Exfil works only from the turn after a jewel is found.
+
+**Difficulty**
+
+| Level | AI | Blast radius to win | Defender's starting Insight |
+|---|---|---|---|
+| Easy | random-ish | 8 apps | 6 |
+| Normal | 1-step | 7 apps | 4 |
+| Hard | 2-step look-ahead | 8 apps | 3 |
+
+**The strategic tension.** Fortify the jewels against theft, or contain
+the blast radius against ransomware. Harden the services your plan depends
+on before you fence behind them. Observe before you fence, or pay for
+outages. Spend on income now, or on Sensors and Isolate to answer threats.
+
+**Balance (bot players, Attacker win rate, 200 games per cell)**
+
+| Strategy | Easy | Normal | Hard |
+|---|---|---|---|
+| Fortress (jewel apps and their services) | 16% | 34% | 53% |
+| Careful (fortress, then expand) | 13% | 37% | 52% |
+| Infra-first | – | 30% | – |
+| Territory (fence the most apps, fast) | 29% | 55% | 74% |
+| Hasty (fences without observing) | – | 85% | 85% |
+| Mindless (harden and fence everything, never observe) | 87% | 100% | 100% |
+
+- Several plans are viable within a few points of each other; a smarter
+  territory bot would probably close the gap for territory play.
+- Skipping Observe is heavily punished.
+- Median game length is 6 rounds.
+- Wins come both ways: jewel theft and ransomware.
+
+**Removed in v0.6:** Assess (income is automatic now), Segment (Isolate is
+the manual wall), Allow (ring-fence publishes the recommendation), Swap,
+global flow timeline and month-end surprises, and the any-service-to-
+any-service hub. Stage 3 (environments) is still not modelled.
 
 **What changed in v0.5 (always a way to respond).** In a playtest, the
 player lost in a position where no legal move could stop the Attacker. The
