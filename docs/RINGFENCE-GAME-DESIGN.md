@@ -3,7 +3,8 @@
 *A two-player asymmetric strategy game about lateral movement and Zero Trust.
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
-Status: design draft **v0.6 (territory)**. Numbers are starting values for
+Status: design draft **v0.6 (territory)**; the prototype is v0.7 (same
+rules, and you can play either side). Numbers are starting values for
 playtesting (Section 11). **Section 0 below is the current rule set.**
 Sections 1–10 describe earlier versions and keep their history. The
 v0.5 prototype is kept as `ringfence/v05.html` for comparison.
@@ -91,6 +92,35 @@ outages. Spend on income now, or on Sensors and Isolate to answer threats.
 the manual wall), Allow (ring-fence publishes the recommendation), Swap,
 global flow timeline and month-end surprises, and the any-service-to-
 any-service hub. Stage 3 (environments) is still not modelled.
+
+**What changed in v0.7 (play either side; the prototype's look and sound).**
+The rules are the same as v0.6. The prototype now opens on a title screen
+where you pick a side:
+- **Defender** against the AI Attacker, as before.
+- **Attacker** against a Defender bot that follows the vDefend playbook.
+  The bot hides its tokens and moves first.
+
+The Attacker role gives booth visitors the attacker's view of Zero Trust. Each
+vDefend feature shows up as an obstacle:
+- an unhardened service is a backdoor, and a hardened one is not
+- a ring-fence makes every crossing cost extra actions
+- a Sensor ends your turn
+- Isolate cuts off your route
+
+The end screen spells out that mapping. Difficulty picks the bot's
+strategy:
+
+| Level | Bot strategy | AI Attacker win rate (200 sims) |
+|---|---|---|
+| Easy | `territory`: fences a lot, forgets its jewels | 55% |
+| Normal | `careful`: observe → harden → fence the jewels → expand | 37% |
+| Hard | `careful` with 6 starting Insight | 23% |
+
+A human attacker is expected to do worse than the AI at first. Human
+playtests will set the final numbers, and the playtest report now splits
+results by side. The prototype also gains pixel-art sprites, a retro arcade
+theme and synthesized chiptune sound. All of it is generated in code, so the
+page stays a single file.
 
 **What changed in v0.5 (always a way to respond).** In a playtest, the
 player lost in a position where no legal move could stop the Attacker. The

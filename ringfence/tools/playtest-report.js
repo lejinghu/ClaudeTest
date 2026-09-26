@@ -43,7 +43,7 @@ function summary(label, list) {
   const wins = list.filter((g) => g.result.playerWon).length;
   const ratings = list.map((g) => g.rating).filter((r) => r != null);
   return [
-    label.padEnd(16),
+    label.padEnd(17),
     String(list.length).padStart(5),
     pct(wins, list.length).padStart(10),
     fmt(mean(ratings)).padStart(8) + ` (${ratings.length})`,
@@ -55,11 +55,15 @@ function summary(label, list) {
 }
 
 console.log(`RINGFENCE playtest report: ${games.length} game(s) from ${files.length} file(s)\n`);
-console.log('Group             Games  Player wins  Fun (n)   Minutes  Rounds  Turn secs  Outages');
+console.log('Group              Games  Player wins  Fun (n)   Minutes  Rounds  Turn secs  Outages');
 console.log(summary('All', games));
-for (const level of ['easy', 'normal', 'hard']) {
-  const list = games.filter((g) => g.level === level);
-  if (list.length) console.log(summary('AI ' + level, list));
+// v0.7 records say which side the human played; older ones are all Defender.
+const roleOf = (g) => g.role || 'defender';
+for (const role of ['defender', 'attacker']) {
+  for (const level of ['easy', 'normal', 'hard']) {
+    const list = games.filter((g) => roleOf(g) === role && g.level === level);
+    if (list.length) console.log(summary((role === 'defender' ? 'Def vs AI ' : 'Atk vs bot ') + level, list));
+  }
 }
 for (const rule of ['insight', 'score']) {
   const list = games.filter((g) => g.swapRule === rule);
@@ -68,7 +72,7 @@ for (const rule of ['insight', 'score']) {
 const versions = [...new Set(games.map((g) => g.version))];
 if (versions.length > 1) for (const v of versions) console.log(summary('Version ' + v, games.filter((g) => g.version === v)));
 
-console.log('\nTargets: player wins about 70% on Easy, 55-60% on Normal, 40-45% on Hard; about 5 minutes; fun at least 4.');
+console.log('\nTargets (either side): player wins about 70% on Easy, 55-60% on Normal, 40-45% on Hard; about 5 minutes; fun at least 4.');
 
 const ratings = games.map((g) => g.rating).filter((r) => r != null);
 if (ratings.length) {
@@ -78,24 +82,24 @@ if (ratings.length) {
 
 const mix = {};
 let total = 0;
-for (const g of games) for (const a of g.actions) if (a.who === 'D') { mix[a.a] = (mix[a.a] || 0) + 1; total++; }
-console.log('\nDefender action mix (share of all Defender actions):');
+for (const g of games) if (roleOf(g) === 'defender') for (const a of g.actions) if (a.who === 'D') { mix[a.a] = (mix[a.a] || 0) + 1; total++; }
+console.log('\nHuman Defender action mix (share of all their actions):');
 Object.entries(mix).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => console.log(`  ${k.padEnd(10)} ${pct(n, total).padStart(4)}  (${n})`));
 console.log('  An action under 5% or over 40% is worth a look: it may be useless or dominant.');
 
 const losses = {};
-for (const g of games) if (!g.result.playerWon) {
+for (const g of games) if (!g.result.playerWon && roleOf(g) === 'defender') {
   const last = [...g.actions].reverse().find((a) => a.who === 'A' && a.a === 'exfil');
   const key = last ? 'jewel stolen (' + last.cell + ')' : g.result.reason;
   losses[key] = (losses[key] || 0) + 1;
 }
 if (Object.keys(losses).length) {
-  console.log('\nHow players lost:');
+  console.log('\nHow Defender players lost:');
   Object.entries(losses).sort((a, b) => b[1] - a[1]).forEach(([k, n]) => console.log(`  ${String(n).padStart(3)}  ${k}`));
 }
 
 const comments = games.filter((g) => g.comment);
 if (comments.length) {
   console.log('\nComments:');
-  comments.forEach((g) => console.log(`  [${g.rating ?? '-'}/5, ${g.level}, ${g.result.playerWon ? 'won' : 'lost'}] ${g.comment}`));
+  comments.forEach((g) => console.log(`  [${g.rating ?? '-'}/5, ${roleOf(g)} ${g.level}, ${g.result.playerWon ? 'won' : 'lost'}] ${g.comment}`));
 }

@@ -4,7 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>RINGFENCE</title>
-<meta name="description" content="RINGFENCE prototype: defend a datacenter against an AI attacker using the DFW 1-2-3-4 segmentation stages." />
+<meta name="description" content="RINGFENCE: a pixel-art Zero Trust strategy game. Defend a datacenter with the DFW 1-2-3-4 stages, or attack one guarded by a vDefend bot." />
+<meta name="theme-color" content="#070b16" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f172a'/%3E%3Ccircle cx='16' cy='16' r='9.5' fill='none' stroke='%232dd4bf' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23ef4444'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="../css/style.css" />
 </head>
@@ -16,6 +20,8 @@
     <span class="badge">prototype</span>
   </div>
   <nav class="top-actions">
+    <button class="btn ghost icon" data-sound="mute" type="button" aria-label="Sound">🔊</button>
+    <button class="btn ghost icon" data-sound="music" type="button" aria-label="Music">♪</button>
     <button id="btn-rules" class="btn ghost" type="button">Rules</button>
     <button id="btn-new" class="btn ghost" type="button">New game</button>
   </nav>
@@ -25,7 +31,7 @@
   <section class="board-wrap" aria-label="Game board">
     <svg id="board" role="img" aria-label="Datacenter board"></svg>
     <ul class="legend" aria-label="Legend">
-      <li><span class="lg lg-stone"></span>Attacker stone</li>
+      <li><span class="lg lg-stone"></span>Attacker stone (virus)</li>
       <li><span class="lg lg-wall"></span>Wall</li>
       <li><span class="lg lg-fence"></span>Ring-fence</li>
       <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
@@ -66,6 +72,12 @@
         <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Sensor</span><span class="cost">IDS/IPS trap · 1 Insight</span></button>
         <button class="act" data-action="isolate" type="button"><span class="num">⛔</span><span class="lbl">Isolate</span><span class="cost">Emergency block · 2 Insight</span></button>
       </div>
+      <div class="actions" id="actions-atk" hidden>
+        <button class="act" data-amode="move" type="button"><span class="num">🦠</span><span class="lbl">Move</span><span class="cost">Breach or spread · 1+ action</span></button>
+        <button class="act" data-amode="recon" type="button"><span class="num">🔍</span><span class="lbl">Recon</span><span class="cost">Peek at a token · 1 action</span></button>
+        <button class="act" data-amode="exfil" type="button"><span class="num">💾</span><span class="lbl">Exfil</span><span class="cost">Steal a found jewel · win</span></button>
+        <button class="act" data-amode="hint" type="button"><span class="num">💡</span><span class="lbl">Hint</span><span class="cost">What would the AI do?</span></button>
+      </div>
       <div id="hint" class="hint"></div>
       <div class="row">
         <button id="btn-undo" class="btn" type="button">Undo</button>
@@ -80,21 +92,21 @@
 
     <details class="card settings">
       <summary>Settings</summary>
-      <label>Attacker AI
+      <label>Difficulty
         <select id="set-level">
-          <option value="easy">Easy: script kiddie</option>
-          <option value="normal">Normal: ransomware crew</option>
-          <option value="hard">Hard: APT (plans ahead)</option>
+          <option value="easy">Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
         </select>
       </label>
-      <label>AI speed
+      <label>Opponent speed
         <select id="set-speed">
           <option value="1100">Slow</option>
           <option value="600">Normal</option>
           <option value="200">Fast</option>
         </select>
       </label>
-      <label class="check"><input type="checkbox" id="set-threat" /> Highlight the Attacker’s quickest route to your jewels</label>
+      <label class="check"><input type="checkbox" id="set-threat" /> Defender: highlight the Attacker’s quickest route to your jewels</label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
       <div class="playtest">
         <span id="pt-count" class="small muted"></span>
@@ -134,22 +146,57 @@
     </div>
     <div class="row">
       <button id="btn-review" class="btn" type="button">Review board</button>
+      <button id="btn-switch" class="btn" type="button">Change side</button>
       <button id="btn-again" class="btn primary" type="button">Play again</button>
     </div>
+  </div>
+</div>
+
+<div id="overlay-title" class="overlay title-screen" hidden>
+  <div class="sheet title-sheet" role="dialog" aria-modal="true" aria-labelledby="title-name">
+    <div class="title-art" aria-hidden="true"><span class="bob"></span></div>
+    <h2 id="title-name" class="title-name">RINGFENCE</h2>
+    <p class="title-sub">A Zero Trust strategy game · DFW 1-2-3-4</p>
+    <p class="title-pick">CHOOSE YOUR SIDE</p>
+    <div class="roles" id="title-roles">
+      <button class="role-card def" data-role="defender" type="button">
+        <span class="role-art" data-sprite="shield"></span>
+        <span class="role-name">DEFENDER</span>
+        <span class="role-text">Protect the datacenter with vDefend: observe, harden, ring-fence and trap.</span>
+        <span class="role-foe" id="title-def-foe"></span>
+      </button>
+      <button class="role-card atk" data-role="attacker" type="button">
+        <span class="role-art" data-sprite="virus"></span>
+        <span class="role-name">ATTACKER</span>
+        <span class="role-text">Breach it, find the crown jewels and get out, or spread ransomware.</span>
+        <span class="role-foe" id="title-atk-foe"></span>
+      </button>
+    </div>
+    <div class="title-level" id="title-level" role="group" aria-label="Difficulty">
+      <button class="btn" data-level="easy" type="button">EASY</button>
+      <button class="btn" data-level="normal" type="button">NORMAL</button>
+      <button class="btn" data-level="hard" type="button">HARD</button>
+    </div>
+    <div class="title-foot">
+      <button id="title-rules" class="btn ghost" type="button">How to play</button>
+      <button class="btn ghost icon" data-sound="mute" type="button" aria-label="Sound">🔊</button>
+      <button class="btn ghost icon" data-sound="music" type="button" aria-label="Music">♪</button>
+    </div>
+    <p class="muted small title-note">Playtest prototype. vDefend is a trademark of Broadcom.</p>
   </div>
 </div>
 
 <div id="overlay-rules" class="overlay" hidden>
   <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
     <h2 id="rules-title">How to play</h2>
-    <p>You are the <strong>Defender</strong> of a datacenter. The AI is the <strong>Attacker</strong>. Each round you take 3 actions, then it takes 3.</p>
+    <p>Two sides fight over a datacenter. The <strong>Defender</strong> moves first each round with 3 actions, then the <strong>Attacker</strong> takes 3. Play either side: against the AI Attacker, or against the vDefend Defender bot.</p>
     <ul>
-      <li><strong>You win</strong> by reaching the <strong>Zero Trust target</strong> (18 points on Normal), or by surviving to the end of round 8.</li>
+      <li><strong>The Defender wins</strong> by reaching the <strong>Zero Trust target</strong> (18 points), or by surviving to the end of round 8.</li>
       <li><strong>The Attacker wins</strong> by stealing <strong>one Crown Jewel</strong>, or by getting footholds in <strong>7 apps</strong>: ransomware across a huge blast radius.</li>
     </ul>
-    <h3>How you score: territory</h3>
+    <h3>How the Defender scores: territory</h3>
     <p>At the start of each of your turns, every <strong>secure app</strong> (ring-fenced, with no attacker inside) and every <strong>hardened service</strong> gives <strong>+1 Zero Trust point</strong>. You also get <strong>+3 Insight</strong>, plus 1 per secure app. Secure early and your economy grows.</p>
-    <h3>Your actions</h3>
+    <h3>Defender actions</h3>
     <ul class="rules-actions">
       <li><strong>👁 Observe</strong> an app (free, one action). Security Intelligence maps its business flows, and they show on your next turn. <em>Stage 1: assess before you enforce.</em></li>
       <li><strong>🛡 Harden</strong> a shared service (2 Insight). The dots on each app show which of NTP, DNS and LDAP it uses. An <strong>unhardened service is a backdoor</strong> into every app that uses it, even ring-fenced ones, and DNS is also an exit (tunnelling). <em>Stage 2: infrastructure services.</em></li>
@@ -157,18 +204,23 @@
       <li><strong>★ Sensor</strong> (1 Insight): a face-down IDS/IPS trap. A stone that steps on it is removed, and the Attacker’s turn ends. <em>SSP threat prevention.</em></li>
       <li><strong>⛔ Isolate</strong> (2 Insight): an emergency block on any edge, even a business flow. Breaking a running flow costs −2 points. <em>Incident response.</em></li>
     </ul>
-    <h3>The Attacker</h3>
+    <h3>Attacker actions</h3>
     <ul>
+      <li>You can see where the Defender’s face-down tokens are, but not whether each is a <strong>Crown Jewel</strong> or a <strong>Sensor</strong>. The % under a token is your odds it is a jewel.</li>
       <li><strong>Breach</strong> (once per turn) into row 1 or the storefront H. <strong>Spread</strong> to a neighbouring cell. Moving into a <em>different</em> app, through an allowed flow, or through a service backdoor costs extra actions.</li>
+      <li>Walls, ring-fences and allowed flows are public. The Defender’s flow data is not.</li>
       <li><strong>Recon</strong> peeks at a face-down token. <strong>Exfil</strong> steals a revealed jewel connected to an exit, but not on the turn it was found, so you always get a turn to respond.</li>
     </ul>
-    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn.</p>
+    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts as Defender: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn. As Attacker: 1 Move · 2 Recon · 3 Exfil · H hint · E end turn.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>
 
 <script src="../js/rules.js"></script>
 <script src="../js/ai.js"></script>
+<script src="../js/defender-ai.js"></script>
+<script src="../js/pixel.js"></script>
+<script src="../js/sound.js"></script>
 <script src="../js/ui.js"></script>
 </body>
 </html>

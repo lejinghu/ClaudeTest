@@ -5,66 +5,45 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>RINGFENCE</title>
-<meta name="description" content="RINGFENCE prototype: defend a datacenter against an AI attacker using the DFW 1-2-3-4 segmentation stages." />
+<meta name="description" content="RINGFENCE: a pixel-art Zero Trust strategy game. Defend a datacenter with the DFW 1-2-3-4 stages, or attack one guarded by a vDefend bot." />
+<meta name="theme-color" content="#070b16" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f172a'/%3E%3Ccircle cx='16' cy='16' r='9.5' fill='none' stroke='%232dd4bf' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23ef4444'/%3E%3C/svg%3E" />
 <style>
 /* style.css */
 :root {
-  --bg: #f4f6fa;
-  --surface: #ffffff;
-  --surface-2: #eef1f6;
-  --text: #0f172a;
-  --muted: #5b6475;
-  --line: #d5dbe5;
-  --grid: #c3cad6;
-  --grid-strong: #475569;
-  --accent: #0d9488;
-  --accent-ink: #ffffff;
-  --stone: #dc2626;
-  --stone-ring: #7f1d1d;
-  --wall: #1d4ed8;
-  --fence: #0d9488;
-  --flow: #16a34a;
-  --zone: #ea580c;
-  --jewel: #d97706;
-  --sensor: #2563eb;
-  --hardened: #bfdbfe;
-  --infra: #e2e8f0;
-  --target: #f59e0b;
-  --recent: #f43f5e;
+  /* Retro arcade palette (one theme: the game is always "night shift"). */
+  --bg: #070b16;
+  --surface: #0f1529;
+  --surface-2: #182041;
+  --text: #e8ecff;
+  --muted: #8b95c9;
+  --line: #2a3566;
+  --grid: #253063;
+  --grid-strong: #6f7fd1;
+  --accent: #2dd4bf;
+  --accent-ink: #03211d;
+  --stone: #ff4d6d;
+  --stone-ring: #ffd1dc;
+  --wall: #4f8cff;
+  --fence: #2dd4bf;
+  --flow: #5dff8f;
+  --zone: #ff9f43;
+  --jewel: #ffd23f;
+  --sensor: #4fc3ff;
+  --hardened: #12306b;
+  --infra: #131a33;
+  --target: #ffd23f;
+  --recent: #ff4d6d;
+  --shadow: #000000;
+  --font-pixel: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  --font-body: "VT323", ui-monospace, "Courier New", monospace;
 
-  --app-A: #e2e8f0; --app-B: #e0e7ff; --app-C: #ede9fe; --app-D: #cffafe; --app-E: #e7e5e4;
-  --app-F: #fef3c7; --app-G: #ffedd5; --app-H: #fee2e2; --app-J: #fce7f3; --app-K: #dcfce7; --app-L: #e0f2fe;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0b1020;
-    --surface: #131a2c;
-    --surface-2: #1b2338;
-    --text: #e6eaf2;
-    --muted: #9aa4b8;
-    --line: #283149;
-    --grid: #334061;
-    --grid-strong: #a3b1cc;
-    --accent: #2dd4bf;
-    --accent-ink: #042f2e;
-    --stone: #f87171;
-    --stone-ring: #fecaca;
-    --wall: #60a5fa;
-    --fence: #2dd4bf;
-    --flow: #4ade80;
-    --zone: #fb923c;
-    --jewel: #fbbf24;
-    --sensor: #60a5fa;
-    --hardened: #1e3a8a;
-    --infra: #1f2937;
-    --target: #fbbf24;
-    --recent: #fb7185;
-
-    --app-A: #1e293b; --app-B: #1e1b4b; --app-C: #2e1065; --app-D: #083344; --app-E: #292524;
-    --app-F: #422006; --app-G: #431407; --app-H: #450a0a; --app-J: #4a0726; --app-K: #052e16; --app-L: #082f49;
-  }
+  --app-A: #1b2440; --app-B: #221c52; --app-C: #33145e; --app-D: #0a3a4a; --app-E: #2e2a28;
+  --app-F: #43300a; --app-G: #4a1d0b; --app-H: #4f0f1a; --app-J: #4d0b33; --app-K: #0b3a1f; --app-L: #0b3257;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -305,8 +284,7 @@ code { font-size: 0.9em; }
 .suggest .btn em { font-style: normal; color: var(--muted); font-weight: 500; }
 
 /* v0.6: shared services, dependencies, blast radius */
-:root { --svc-NTP: #8b5cf6; --svc-DNS: #0284c7; --svc-LDAP: #d97706; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --svc-NTP: #a78bfa; --svc-DNS: #38bdf8; --svc-LDAP: #fbbf24; } }
+:root { --svc-NTP: #c084fc; --svc-DNS: #60a5fa; --svc-LDAP: #facc15; }
 .dep.svc-NTP { fill: var(--svc-NTP); } .dep.svc-DNS { fill: var(--svc-DNS); } .dep.svc-LDAP { fill: var(--svc-LDAP); }
 .infra-ring { fill: none; stroke-width: 3; }
 .infra-ring.svc-NTP { stroke: var(--svc-NTP); } .infra-ring.svc-DNS { stroke: var(--svc-DNS); } .infra-ring.svc-LDAP { stroke: var(--svc-LDAP); }
@@ -315,6 +293,164 @@ code { font-size: 0.9em; }
 .lg-dep { width: 30px; height: 8px; background: radial-gradient(circle at 4px 4px, var(--svc-NTP) 3.5px, transparent 4px), radial-gradient(circle at 15px 4px, var(--svc-DNS) 3.5px, transparent 4px), radial-gradient(circle at 26px 4px, var(--svc-LDAP) 3.5px, transparent 4px); }
 .lg-comp { width: 14px; height: 14px; background: color-mix(in srgb, var(--stone) 25%, transparent); border-radius: 3px; }
 .act .num { font-size: 16px; }
+
+/* =================================================== v0.7 retro arcade */
+body {
+  font: 19px/1.2 var(--font-body);
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(45, 212, 191, 0.12), transparent 55%),
+    radial-gradient(ellipse at 100% 100%, rgba(255, 77, 109, 0.10), transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
+}
+code { font-family: var(--font-body); }
+.brand h1, .status, .btn, .act .lbl, .meter .k, .log-card h2, .settings summary, .sheet h2, .sheet h3, .badge, .title-level .btn {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+}
+.brand h1 { font-size: 16px; letter-spacing: 0.08em; color: var(--accent); text-shadow: 2px 2px 0 var(--shadow), 0 0 12px rgba(45, 212, 191, 0.55); }
+.badge { font-size: 8px; border-radius: 0; border-width: 2px; }
+.logo { border-radius: 0; border-width: 3px; box-shadow: 2px 2px 0 var(--shadow); }
+.logo::after { border-radius: 0; }
+.topbar { border-bottom: 2px solid var(--line); background: rgba(15, 21, 41, 0.92); backdrop-filter: blur(4px); }
+.top-actions { align-items: center; }
+.btn { font-size: 10px; line-height: 1.5; border-radius: 4px; border-width: 2px; box-shadow: 3px 3px 0 var(--shadow); text-transform: uppercase; }
+.btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+.btn.ghost { box-shadow: none; }
+.btn.icon { font-family: inherit; font-size: 18px; min-width: 40px; padding: 4px 8px; text-transform: none; }
+.btn.icon.off { opacity: 0.4; text-decoration: line-through; }
+.card, .status-card, .meter, .board-wrap, .threat-box, .sheet { border-radius: 6px; border-width: 2px; box-shadow: 4px 4px 0 var(--shadow); }
+.status { font-size: 11px; line-height: 1.6; color: var(--accent); }
+.status.attacker { color: var(--stone); }
+.pip { border-radius: 0; width: 13px; height: 13px; }
+.meter .k { font-size: 8px; line-height: 1.6; text-transform: uppercase; }
+.meter .v { font-size: 26px; font-weight: 400; line-height: 1; }
+.meter .v small { font-size: 17px; font-weight: 400; }
+.bar { height: 8px; border-radius: 0; background: repeating-linear-gradient(90deg, var(--surface-2) 0 6px, var(--bg) 6px 8px); }
+.bar > span { border-radius: 0; background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px); }
+.meter.danger .bar > span { background: repeating-linear-gradient(90deg, var(--stone) 0 6px, transparent 6px 8px); }
+.meter.wide { font-size: 17px; }
+.act { border-radius: 4px; border-width: 2px; box-shadow: 3px 3px 0 var(--shadow); }
+.act .lbl { font-size: 10px; line-height: 1.8; }
+.act .cost { font-size: 16px; line-height: 1.05; }
+.act .num { font-size: 18px; }
+.act.pulse { animation: pulse 1.2s ease-in-out infinite; }
+.hint { font-size: 18px; }
+.log { font-size: 17px; max-height: 300px; }
+.log li { line-height: 1.15; }
+.log-card h2, .settings summary { font-size: 10px; }
+.settings label { font-size: 18px; }
+.legend { font-size: 16px; }
+.sheet { font-size: 19px; border-color: var(--grid-strong); }
+.sheet h2 { font-size: 15px; line-height: 1.5; color: var(--accent); }
+.sheet h3 { font-size: 11px; line-height: 1.6; color: var(--jewel); }
+.debrief li span { font-size: 17px; }
+.threat-box { font-size: 18px; }
+.suggest .btn { font-family: var(--font-body); font-size: 17px; text-transform: none; }
+.rate .btn { font-size: 14px; }
+.rate .btn span { font-family: var(--font-body); font-size: 13px; text-transform: none; }
+.toast { background: var(--jewel); color: #1a1300; font-size: 18px; border-radius: 4px; box-shadow: 4px 4px 0 var(--shadow); }
+.small { font-size: 16px; }
+.overlay { background: rgba(3, 5, 12, 0.78); }
+.lg-stone { border-radius: 0; background: center / contain no-repeat var(--lg-virus, none), var(--stone); image-rendering: pixelated; width: 16px; height: 14px; }
+.lg-stone.px-ok { background-color: transparent; }
+
+/* The board: a CRT screen. */
+.board-wrap { position: relative; overflow: hidden; background: #050814; }
+.board-wrap::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+.t-app, .t-infra, .t-axis, .t-internet, .t-users, .t-odds, .t-cost, .t-exfil { font-family: var(--font-pixel); font-weight: 400; }
+.t-app { font-size: 8px; fill: var(--text); opacity: 0.85; }
+.t-infra { font-size: 8px; }
+.t-axis { font-size: 8px; }
+.t-internet { font-size: 8px; letter-spacing: 0.6em; fill: var(--accent); }
+.internet-band { fill: #0b2a33; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 2; }
+.t-users { font-size: 5.5px; letter-spacing: 0; }
+.t-odds { font-size: 6.5px; fill: var(--jewel); paint-order: stroke; stroke: #000; stroke-width: 2px; }
+.t-cost { font-size: 8px; fill: var(--target); paint-order: stroke; stroke: #000; stroke-width: 2px; }
+.t-exfil { font-size: 6.5px; fill: var(--jewel); animation: blink 0.8s steps(2) infinite; paint-order: stroke; stroke: #000; stroke-width: 2px; }
+@keyframes blink { 50% { opacity: 0.2; } }
+.px { image-rendering: pixelated; image-rendering: crisp-edges; }
+.rack { opacity: 0.16; }
+.svc-icon { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.25)); }
+.hard-shield { filter: drop-shadow(0 0 4px rgba(93, 255, 143, 0.8)); }
+.skull { opacity: 0.9; }
+.bug { animation: bob 0.9s steps(2) infinite; transform-box: fill-box; transform-origin: center; }
+.bug.alt { animation-delay: -0.45s; }
+.bug.fresh { animation: pop 0.35s steps(4) 1, bob 0.9s steps(2) 0.35s infinite; }
+@keyframes bob { 50% { transform: translateY(-2px); } }
+.bug-shadow { fill: rgba(0, 0, 0, 0.45); }
+.tok-card { fill: #0b1020; stroke: var(--grid-strong); stroke-dasharray: none; stroke-width: 1.5; }
+.tok-card.up { stroke: var(--jewel); stroke-width: 2; filter: drop-shadow(0 0 4px rgba(255, 210, 63, 0.9)); }
+.token.up .gem { animation: sparkle 1.2s steps(3) infinite; }
+@keyframes sparkle { 50% { filter: brightness(1.5); } }
+.hint-cell { fill: none; stroke: var(--jewel); stroke-width: 3; stroke-dasharray: 6 4; animation: march 0.6s linear infinite; }
+@keyframes march { to { stroke-dashoffset: -20; } }
+.cell-hit.target { fill: color-mix(in srgb, var(--target) 16%, transparent); stroke-dasharray: 5 3; animation: march 1.2s linear infinite; }
+.cell-hit.recent { stroke-dasharray: none; }
+.fence { filter: drop-shadow(0 0 3px rgba(45, 212, 191, 0.9)); stroke-linecap: square; }
+.wall { filter: drop-shadow(0 0 3px rgba(79, 140, 255, 0.9)); }
+.wall.iso { filter: drop-shadow(0 0 3px rgba(255, 77, 109, 0.9)); }
+.allow .flow-line { filter: drop-shadow(0 0 2px rgba(93, 255, 143, 0.9)); }
+.compromised { fill: rgba(255, 77, 109, 0.14); }
+body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%, transparent); stroke: var(--stone); }
+.threat-box.intel { border-color: var(--stone); }
+.threat-box.intel.danger { animation: pulse-red 1s steps(2) infinite; }
+@keyframes pulse-red { 50% { border-color: var(--jewel); } }
+
+/* Title screen */
+.title-screen { background: radial-gradient(ellipse at 50% 30%, rgba(24, 32, 65, 0.9), rgba(3, 5, 12, 0.96)); }
+.title-sheet { text-align: center; max-width: 620px; border-color: var(--accent); box-shadow: 6px 6px 0 var(--shadow), 0 0 40px rgba(45, 212, 191, 0.25); }
+.title-art { display: flex; justify-content: center; align-items: flex-end; gap: 18px; min-height: 52px; }
+.title-art img { animation: bob 0.9s steps(2) infinite; }
+.title-art img:nth-child(2) { animation-delay: -0.3s; }
+.title-art img:nth-child(3) { animation-delay: -0.6s; }
+.title-name { font-family: var(--font-pixel); font-size: clamp(22px, 7vw, 38px) !important; margin: 14px 0 6px !important; letter-spacing: 0.06em;
+  color: var(--accent) !important; text-shadow: 3px 3px 0 #0d4a43, 6px 6px 0 var(--shadow), 0 0 24px rgba(45, 212, 191, 0.6); }
+.title-sub { margin: 0 0 16px; color: var(--muted); font-size: 20px; }
+.title-pick { font-family: var(--font-pixel); font-size: 11px; color: var(--jewel); margin: 0 0 10px; animation: blink 1.2s steps(2) infinite; }
+.roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.role-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px; cursor: pointer;
+  background: var(--surface-2); border: 3px solid var(--line); border-radius: 6px; color: var(--text); box-shadow: 4px 4px 0 var(--shadow);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.1; transition: transform 0.08s steps(2);
+}
+.role-card:hover, .role-card:focus-visible { transform: translateY(-3px); }
+.role-card.def:hover, .role-card.def.sel { border-color: var(--accent); }
+.role-card.atk:hover, .role-card.atk.sel { border-color: var(--stone); }
+.role-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+.role-art { min-height: 44px; display: flex; align-items: center; }
+.role-name { font-family: var(--font-pixel); font-size: 13px; }
+.role-card.def .role-name { color: var(--accent); }
+.role-card.atk .role-name { color: var(--stone); }
+.role-foe { color: var(--muted); font-size: 16px; }
+.title-level { display: flex; justify-content: center; gap: 8px; margin: 14px 0 6px; }
+.title-level .btn { min-height: 38px; flex: 0 1 110px; }
+.title-level .btn.sel { background: var(--jewel); color: #1a1300; border-color: var(--jewel); }
+.title-foot { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 8px; }
+.title-note { margin: 10px 0 0; }
+#overlay-end.won .sheet { border-color: var(--jewel); box-shadow: 6px 6px 0 var(--shadow), 0 0 40px rgba(255, 210, 63, 0.3); }
+#overlay-end.won #end-title { color: var(--jewel); }
+#overlay-end:not(.won) #end-title { color: var(--stone); }
+
+@media (max-width: 520px) {
+  .brand h1 { font-size: 12px; }
+  .btn { font-size: 9px; }
+  .btn.icon { min-width: 34px; padding: 4px 6px; font-size: 16px; }
+  .top-actions { gap: 4px; }
+  .roles { grid-template-columns: 1fr; }
+  .role-card { flex-direction: row; flex-wrap: wrap; text-align: left; justify-content: flex-start; }
+  .role-card .role-text, .role-card .role-foe { flex: 1 1 100%; }
+  .title-sheet { padding: 16px 12px; }
+  .logo { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bug, .title-art img, .title-pick, .t-exfil, .hint-cell, .cell-hit.target, .token.up .gem { animation: none !important; }
+}
+.actions[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -325,6 +461,8 @@ code { font-size: 0.9em; }
     <span class="badge">prototype</span>
   </div>
   <nav class="top-actions">
+    <button class="btn ghost icon" data-sound="mute" type="button" aria-label="Sound">🔊</button>
+    <button class="btn ghost icon" data-sound="music" type="button" aria-label="Music">♪</button>
     <button id="btn-rules" class="btn ghost" type="button">Rules</button>
     <button id="btn-new" class="btn ghost" type="button">New game</button>
   </nav>
@@ -334,7 +472,7 @@ code { font-size: 0.9em; }
   <section class="board-wrap" aria-label="Game board">
     <svg id="board" role="img" aria-label="Datacenter board"></svg>
     <ul class="legend" aria-label="Legend">
-      <li><span class="lg lg-stone"></span>Attacker stone</li>
+      <li><span class="lg lg-stone"></span>Attacker stone (virus)</li>
       <li><span class="lg lg-wall"></span>Wall</li>
       <li><span class="lg lg-fence"></span>Ring-fence</li>
       <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
@@ -375,6 +513,12 @@ code { font-size: 0.9em; }
         <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Sensor</span><span class="cost">IDS/IPS trap · 1 Insight</span></button>
         <button class="act" data-action="isolate" type="button"><span class="num">⛔</span><span class="lbl">Isolate</span><span class="cost">Emergency block · 2 Insight</span></button>
       </div>
+      <div class="actions" id="actions-atk" hidden>
+        <button class="act" data-amode="move" type="button"><span class="num">🦠</span><span class="lbl">Move</span><span class="cost">Breach or spread · 1+ action</span></button>
+        <button class="act" data-amode="recon" type="button"><span class="num">🔍</span><span class="lbl">Recon</span><span class="cost">Peek at a token · 1 action</span></button>
+        <button class="act" data-amode="exfil" type="button"><span class="num">💾</span><span class="lbl">Exfil</span><span class="cost">Steal a found jewel · win</span></button>
+        <button class="act" data-amode="hint" type="button"><span class="num">💡</span><span class="lbl">Hint</span><span class="cost">What would the AI do?</span></button>
+      </div>
       <div id="hint" class="hint"></div>
       <div class="row">
         <button id="btn-undo" class="btn" type="button">Undo</button>
@@ -389,21 +533,21 @@ code { font-size: 0.9em; }
 
     <details class="card settings">
       <summary>Settings</summary>
-      <label>Attacker AI
+      <label>Difficulty
         <select id="set-level">
-          <option value="easy">Easy: script kiddie</option>
-          <option value="normal">Normal: ransomware crew</option>
-          <option value="hard">Hard: APT (plans ahead)</option>
+          <option value="easy">Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
         </select>
       </label>
-      <label>AI speed
+      <label>Opponent speed
         <select id="set-speed">
           <option value="1100">Slow</option>
           <option value="600">Normal</option>
           <option value="200">Fast</option>
         </select>
       </label>
-      <label class="check"><input type="checkbox" id="set-threat" /> Highlight the Attacker’s quickest route to your jewels</label>
+      <label class="check"><input type="checkbox" id="set-threat" /> Defender: highlight the Attacker’s quickest route to your jewels</label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
       <div class="playtest">
         <span id="pt-count" class="small muted"></span>
@@ -443,22 +587,57 @@ code { font-size: 0.9em; }
     </div>
     <div class="row">
       <button id="btn-review" class="btn" type="button">Review board</button>
+      <button id="btn-switch" class="btn" type="button">Change side</button>
       <button id="btn-again" class="btn primary" type="button">Play again</button>
     </div>
+  </div>
+</div>
+
+<div id="overlay-title" class="overlay title-screen" hidden>
+  <div class="sheet title-sheet" role="dialog" aria-modal="true" aria-labelledby="title-name">
+    <div class="title-art" aria-hidden="true"><span class="bob"></span></div>
+    <h2 id="title-name" class="title-name">RINGFENCE</h2>
+    <p class="title-sub">A Zero Trust strategy game · DFW 1-2-3-4</p>
+    <p class="title-pick">CHOOSE YOUR SIDE</p>
+    <div class="roles" id="title-roles">
+      <button class="role-card def" data-role="defender" type="button">
+        <span class="role-art" data-sprite="shield"></span>
+        <span class="role-name">DEFENDER</span>
+        <span class="role-text">Protect the datacenter with vDefend: observe, harden, ring-fence and trap.</span>
+        <span class="role-foe" id="title-def-foe"></span>
+      </button>
+      <button class="role-card atk" data-role="attacker" type="button">
+        <span class="role-art" data-sprite="virus"></span>
+        <span class="role-name">ATTACKER</span>
+        <span class="role-text">Breach it, find the crown jewels and get out, or spread ransomware.</span>
+        <span class="role-foe" id="title-atk-foe"></span>
+      </button>
+    </div>
+    <div class="title-level" id="title-level" role="group" aria-label="Difficulty">
+      <button class="btn" data-level="easy" type="button">EASY</button>
+      <button class="btn" data-level="normal" type="button">NORMAL</button>
+      <button class="btn" data-level="hard" type="button">HARD</button>
+    </div>
+    <div class="title-foot">
+      <button id="title-rules" class="btn ghost" type="button">How to play</button>
+      <button class="btn ghost icon" data-sound="mute" type="button" aria-label="Sound">🔊</button>
+      <button class="btn ghost icon" data-sound="music" type="button" aria-label="Music">♪</button>
+    </div>
+    <p class="muted small title-note">Playtest prototype. vDefend is a trademark of Broadcom.</p>
   </div>
 </div>
 
 <div id="overlay-rules" class="overlay" hidden>
   <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rules-title">
     <h2 id="rules-title">How to play</h2>
-    <p>You are the <strong>Defender</strong> of a datacenter. The AI is the <strong>Attacker</strong>. Each round you take 3 actions, then it takes 3.</p>
+    <p>Two sides fight over a datacenter. The <strong>Defender</strong> moves first each round with 3 actions, then the <strong>Attacker</strong> takes 3. Play either side: against the AI Attacker, or against the vDefend Defender bot.</p>
     <ul>
-      <li><strong>You win</strong> by reaching the <strong>Zero Trust target</strong> (18 points on Normal), or by surviving to the end of round 8.</li>
+      <li><strong>The Defender wins</strong> by reaching the <strong>Zero Trust target</strong> (18 points), or by surviving to the end of round 8.</li>
       <li><strong>The Attacker wins</strong> by stealing <strong>one Crown Jewel</strong>, or by getting footholds in <strong>7 apps</strong>: ransomware across a huge blast radius.</li>
     </ul>
-    <h3>How you score: territory</h3>
+    <h3>How the Defender scores: territory</h3>
     <p>At the start of each of your turns, every <strong>secure app</strong> (ring-fenced, with no attacker inside) and every <strong>hardened service</strong> gives <strong>+1 Zero Trust point</strong>. You also get <strong>+3 Insight</strong>, plus 1 per secure app. Secure early and your economy grows.</p>
-    <h3>Your actions</h3>
+    <h3>Defender actions</h3>
     <ul class="rules-actions">
       <li><strong>👁 Observe</strong> an app (free, one action). Security Intelligence maps its business flows, and they show on your next turn. <em>Stage 1: assess before you enforce.</em></li>
       <li><strong>🛡 Harden</strong> a shared service (2 Insight). The dots on each app show which of NTP, DNS and LDAP it uses. An <strong>unhardened service is a backdoor</strong> into every app that uses it, even ring-fenced ones, and DNS is also an exit (tunnelling). <em>Stage 2: infrastructure services.</em></li>
@@ -466,12 +645,14 @@ code { font-size: 0.9em; }
       <li><strong>★ Sensor</strong> (1 Insight): a face-down IDS/IPS trap. A stone that steps on it is removed, and the Attacker’s turn ends. <em>SSP threat prevention.</em></li>
       <li><strong>⛔ Isolate</strong> (2 Insight): an emergency block on any edge, even a business flow. Breaking a running flow costs −2 points. <em>Incident response.</em></li>
     </ul>
-    <h3>The Attacker</h3>
+    <h3>Attacker actions</h3>
     <ul>
+      <li>You can see where the Defender’s face-down tokens are, but not whether each is a <strong>Crown Jewel</strong> or a <strong>Sensor</strong>. The % under a token is your odds it is a jewel.</li>
       <li><strong>Breach</strong> (once per turn) into row 1 or the storefront H. <strong>Spread</strong> to a neighbouring cell. Moving into a <em>different</em> app, through an allowed flow, or through a service backdoor costs extra actions.</li>
+      <li>Walls, ring-fences and allowed flows are public. The Defender’s flow data is not.</li>
       <li><strong>Recon</strong> peeks at a face-down token. <strong>Exfil</strong> steals a revealed jewel connected to an exit, but not on the turn it was found, so you always get a turn to respond.</li>
     </ul>
-    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn.</p>
+    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts as Defender: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn. As Attacker: 1 Move · 2 Recon · 3 Exfil · H hint · E end turn.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>
@@ -1948,9 +2129,562 @@ code { font-size: 0.9em; }
 });
 </script>
 <script>
+/* defender-ai.js */
+/*
+ * RINGFENCE Defender bot (v0.6 territory rules).
+ *
+ * It plays the Defender when you play the Attacker, and tools/sim.js uses it
+ * for balance numbers. It knows where its own jewels are, as a human
+ * Defender does, but only the business flows Security Intelligence has
+ * shown it.
+ *
+ * Strategies:
+ *   careful   observe → harden the jewels' services → fence jewel apps →
+ *             expand territory; answer threats with Isolate / Harden / Sensor
+ *   territory fence as much (observed) territory as fast as possible
+ *   fortress  jewel apps and all services only, then Sensors
+ *   infra     harden every service first, then careful
+ *   hasty     careful, but fences without observing first
+ *   mindless  harden and fence whatever is affordable; never observes, never responds
+ */
+(function (root, factory) {
+  const R = root.RF || (typeof require === 'function' ? require('./rules.js') : null);
+  const A = root.RFAI || (typeof require === 'function' ? require('./ai.js') : null);
+  const Bot = factory(R, A);
+  if (typeof module === 'object' && module.exports) module.exports = Bot;
+  else root.RFBOT = Bot;
+})(typeof self !== 'undefined' ? self : this, function (RF, AI) {
+  'use strict';
+  const apps = () => Object.keys(RF.APPS);
+  const jewelApps = (s) => [...new Set(Object.keys(s.tokens).filter((c) => s.tokens[c].type === 'jewel').map((c) => RF.REGION[c]))];
+  const hasStones = (s, app) => RF.APP_CELLS[app].some((c) => s.stones[c]);
+  const mapped = (s, app) => s.observed[app] === -1; // flows revealed
+  const size = (app) => RF.ringfenceCost(app);
+  const act = (s, a) => { const c = AI.defenderKnown(s); return RF.act(c, a).ok ? c : null; };
+
+  // Lower = more dangerous. Combines the jewel threat and the ransomware threat.
+  function danger(s) {
+    const t = AI.defenderThreat(s);
+    const r = AI.ransomThreat(s);
+    const jewel = t ? t.rank : 99;
+    const ransom = r.danger ? RF.CONFIG.attackerActions : 99;
+    return Math.min(jewel, ransom);
+  }
+
+  function responses(s) {
+    const out = [];
+    const t = AI.defenderThreat(s);
+    const cells = new Set(t ? t.path : []);
+    // Backdoors into fenced apps and on the jewel route.
+    RF.INFRA_CELLS.forEach((c) => { if (!s.hardened[c]) out.push({ type: 'harden', cell: c }); });
+    if (t) {
+      for (let k = 0; k + 1 < t.path.length; k++) {
+        const nb = RF.NEIGHBORS[t.path[k]].find((n) => n.cell === t.path[k + 1]);
+        if (nb && !s.walls[nb.key]) out.push({ type: 'isolate', edge: nb.key });
+      }
+    }
+    // Allowed flows into fenced apps next to attacker stones.
+    Object.keys(s.allows).forEach((k) => {
+      const e = RF.EDGES[k];
+      if (!s.walls[k] && (s.stones[e.a] || s.stones[e.b])) out.push({ type: 'isolate', edge: k });
+    });
+    for (let c = 0; c < RF.N; c++) {
+      if ((cells.has(c) || RF.adjacentToStone(s, c)) && !RF.isInfra(c) && !s.stones[c] && !s.tokens[c]) out.push({ type: 'deploy', cell: c });
+    }
+    return out;
+  }
+
+  function respond(s) {
+    const base = danger(s);
+    if (base > RF.CONFIG.attackerActions + 1) return null;
+    let best = null;
+    let bestD = base;
+    let bestCost = Infinity;
+    for (const a of responses(s)) {
+      const c = act(s, a);
+      if (!c) continue;
+      const d = danger(c);
+      const cost = (s.score - c.score) * 3 + (s.insight - c.insight);
+      if (d > bestD || (d === bestD && best && cost < bestCost)) { best = a; bestD = d; bestCost = cost; }
+    }
+    return best;
+  }
+
+  function plan(s, strategy) {
+    const J = jewelApps(s);
+    const afford = (n) => s.insight >= n;
+    const observe = (list) => list.find((a) => s.observed[a] == null && afford(RF.CONFIG.observeCost));
+    const fenceable = (list, needMap) => list.filter((a) => !s.fenced[a] && !hasStones(s, a) && (!needMap || mapped(s, a)) && afford(size(a)));
+    const depsHard = (a) => RF.APPS[a].uses.every((svc) => s.hardened[RF.INFRA_CELL[svc]]);
+    const hardenFor = (list) => {
+      const svcs = [...new Set(list.flatMap((a) => RF.APPS[a].uses))].map((x) => RF.INFRA_CELL[x]).filter((c) => !s.hardened[c]);
+      return afford(RF.CONFIG.hardenCost) && svcs.length ? { type: 'harden', cell: svcs[0] } : null;
+    };
+    const needMap = strategy !== 'hasty' && strategy !== 'mindless';
+    const others = apps().filter((a) => !J.includes(a)).sort((a, b) => size(a) - size(b));
+
+    if (strategy === 'mindless') {
+      const h = hardenFor(apps());
+      if (h) return h;
+      const f = fenceable(J.concat(others), false)[0];
+      return f ? { type: 'ringfence', app: f } : { type: 'endTurn' };
+    }
+    if (strategy === 'infra') { const h = hardenFor(apps()); if (h) return h; }
+    if (needMap) { const o = observe(J); if (o) return { type: 'observe', app: o }; }
+    if (strategy !== 'territory') { const h = hardenFor(J); if (h) return h; }
+    const fj = fenceable(J, needMap)[0];
+    if (fj && strategy !== 'territory') return { type: 'ringfence', app: fj };
+    if (strategy === 'fortress') {
+      const h = hardenFor(apps());
+      if (h) return h;
+      const t = AI.defenderThreat(s);
+      if (t && afford(RF.CONFIG.deployCost) && s.pool.sensor > 0) {
+        const c = t.path.find((x) => !RF.isInfra(x) && !s.stones[x] && !s.tokens[x]);
+        if (c != null) return { type: 'deploy', cell: c };
+      }
+      return { type: 'endTurn' };
+    }
+    // Territory: observe and fence other apps, preferring ones whose services are hardened.
+    const list = strategy === 'territory' ? J.concat(others).sort((a, b) => size(b) - size(a)) : others;
+    const f = fenceable(list, needMap).sort((a, b) => depsHard(b) - depsHard(a))[0];
+    if (f) return { type: 'ringfence', app: f };
+    if (needMap && Object.values(s.observed).filter((r) => r >= 0).length < 2) { const o = observe(list); if (o) return { type: 'observe', app: o }; }
+    const h = hardenFor(apps());
+    if (h) return h;
+    return { type: 'endTurn' }; // save Insight for next turn
+  }
+
+  function chooseAction(s, opts) {
+    opts = opts || {};
+    const strategy = opts.strategy || 'careful';
+    if (s.actionsLeft <= 0) return { type: 'endTurn' };
+    if (strategy !== 'mindless') {
+      const r = respond(s);
+      if (r) return r;
+    }
+    return plan(s, strategy);
+  }
+
+  const mindless = (s) => chooseAction(s, { strategy: 'mindless' });
+
+  return { chooseAction, mindless, danger, STRATEGIES: ['careful', 'territory', 'fortress', 'infra', 'hasty', 'mindless'] };
+});
+</script>
+<script>
+/* pixel.js */
+/*
+ * RINGFENCE pixel art. Sprites are small string grids with a palette,
+ * rendered once to canvas data URLs and drawn on the SVG board as <image>
+ * elements (CSS image-rendering: pixelated keeps them crisp).
+ * No image files: the page stays one self-contained file.
+ */
+(function (root) {
+  'use strict';
+  const PAL = {
+    '.': null,
+    k: '#0b0f1a', // outline
+    w: '#f8fafc',
+    g: '#94a3b8',
+    d: '#475569',
+    s: '#1e293b',
+    r: '#ef4444',
+    R: '#991b1b',
+    o: '#f97316',
+    y: '#facc15',
+    Y: '#a16207',
+    l: '#4ade80',
+    L: '#15803d',
+    c: '#22d3ee',
+    C: '#0e7490',
+    b: '#60a5fa',
+    B: '#1d4ed8',
+    p: '#c084fc',
+    P: '#7e22ce',
+    m: '#f472b6',
+    t: '#2dd4bf',
+    T: '#0f766e',
+  };
+
+  const SPRITES = {
+    // The attacker: a red virus bug.
+    virus: [
+      '....k....k....',
+      '.....k..k.....',
+      '...kkkkkkkk...',
+      '..krrrrrrrrk..',
+      '.krrwwrrwwrrk.',
+      'kkrrwkrrwkrrkk',
+      '..krrrrrrrrk..',
+      'kkrRrrrrrrRrkk',
+      '..krRRrrRRrk..',
+      '.kkrrrrrrrrkk.',
+      'k..kRrrrrRk..k',
+      '....kkkkkk....',
+    ],
+    virus2: [
+      '...k......k...',
+      '....k....k....',
+      '...kkkkkkkk...',
+      '..krrrrrrrrk..',
+      '.krrwwrrwwrrk.',
+      '.krrwkrrwkrrk.',
+      'kkrrrrrrrrrrkk',
+      '..kRrrrrrrRk..',
+      'kkrRRrrrRRrkk.',
+      '..krrrrrrrrk..',
+      '.k.kRrrrrRk.k.',
+      '....kkkkkk....',
+    ],
+    // Crown jewel.
+    gem: [
+      '...kkkkkk...',
+      '..kcwccwcck.',
+      '.kcwcccccCck',
+      'kkkkkkkkkkkk',
+      'kcCccwcccCCk',
+      '.kcCccccCCk.',
+      '..kcCccCCk..',
+      '...kcCCCk...',
+      '....kCCk....',
+      '.....kk.....',
+    ],
+    // IDS/IPS sensor: a radar dish.
+    sensor: [
+      '....kkkk....',
+      '..kkyyyykk..',
+      '.kyykkkkyyk.',
+      '.kykyyyykyk.',
+      'kykykkkkykyk',
+      'kykyk..kykyk',
+      'kykyk.rkykyk',
+      '.kyk.krk.yk.',
+      '....kddk....',
+      '...kddddk...',
+      '..kkkkkkkk..',
+    ],
+    // Face-down token: a sealed card with a question mark.
+    card: [
+      'kkkkkkkkkk',
+      'kBBBBBBBBk',
+      'kBbbbbbbBk',
+      'kBbwwwwbBk',
+      'kBbbbbwbBk',
+      'kBbbwwwbBk',
+      'kBbbwbbbBk',
+      'kBbbbbbbBk',
+      'kBbbwbbbBk',
+      'kBBBBBBBBk',
+      'kkkkkkkkkk',
+    ],
+    // Recon'd token seen by the attacker (eye).
+    eye: [
+      '..kkkkkk..',
+      '.kwwwwwwk.',
+      'kwwkkkkwwk',
+      'kwkcckkkwk',
+      'kwkcCCkkwk',
+      'kwwkkkkwwk',
+      '.kwwwwwwk.',
+      '..kkkkkk..',
+    ],
+    // Hardened service shield.
+    shield: [
+      'kkkkkkkkkk',
+      'klllllllLk',
+      'kllwllllLk',
+      'kllwwlllLk',
+      'klllwwllLk',
+      'kllllwwlLk',
+      '.kllllllk.',
+      '.kLllllLk.',
+      '..kLllLk..',
+      '...kLLk...',
+      '....kk....',
+    ],
+    lock: [
+      '...kkkk...',
+      '..kgddgk..',
+      '..kg..gk..',
+      '..kg..gk..',
+      'kkkkkkkkkk',
+      'kyyyyyyyYk',
+      'kyyykkyyYk',
+      'kyyykkyyYk',
+      'kyyyyyyyYk',
+      'kYYYYYYYYk',
+      'kkkkkkkkkk',
+    ],
+    // Shared services.
+    ntp: [
+      '...kkkkkk...',
+      '..kppppppk..',
+      '.kppwwwwppk.',
+      'kppwwkwwwppk',
+      'kpwwwkwwwwpk',
+      'kpwwwkwwwwpk',
+      'kpwwwkkkwwpk',
+      'kpwwwwwwwwpk',
+      'kppwwwwwwppk',
+      '.kppwwwwppk.',
+      '..kPPPPPPk..',
+      '...kkkkkk...',
+    ],
+    dns: [
+      '...kkkkkk...',
+      '..kbBbbBbk..',
+      '.kbbBbbBbbk.',
+      'kBBBBBBBBBBk',
+      'kbbBbbbBbbbk',
+      'kbbBbbbBbbbk',
+      'kBBBBBBBBBBk',
+      'kbbBbbbBbbbk',
+      '.kbbBbbBbbk.',
+      '..kbBbbBbk..',
+      '...kkkkkk...',
+    ],
+    ldap: [
+      '..kkkk......',
+      '.kyyyyk.....',
+      'kyykkyyk....',
+      'kyk..kyk....',
+      'kyykkyykkkkk',
+      '.kyyyyyyyyyk',
+      '..kkkkkykyYk',
+      '.......k.kk.',
+    ],
+    // App server rack (drawn faintly behind each app cell).
+    rack: [
+      'kkkkkkkkkkkk',
+      'kddddddddddk',
+      'kdsssssslgdk',
+      'kddddddddddk',
+      'kdssssssygdk',
+      'kddddddddddk',
+      'kdsssssslgdk',
+      'kddddddddddk',
+      'kkkkkkkkkkkk',
+    ],
+    // Ransomware skull for compromised apps.
+    skull: [
+      '..kkkkkk..',
+      '.kwwwwwwk.',
+      'kwwwwwwwwk',
+      'kwkkwwkkwk',
+      'kwkkwwkkwk',
+      'kwwwkkwwwk',
+      '.kwwwwwwk.',
+      '..kwkwkk..',
+      '..kkkkkk..',
+    ],
+    // Crown for titles.
+    crown: [
+      'y....y....y',
+      'yy..yyy..yy',
+      'yyy.yyy.yyy',
+      'yyyyyyyyyyy',
+      'yyryyyyyryy',
+      'YYYYYYYYYYY',
+    ],
+  };
+
+  const cache = {};
+  function url(name, scale) {
+    scale = scale || 4;
+    const key = name + '@' + scale;
+    if (cache[key]) return cache[key];
+    const rows = SPRITES[name];
+    if (!rows || typeof document === 'undefined') return '';
+    const w = Math.max(...rows.map((r) => r.length));
+    const h = rows.length;
+    const cv = document.createElement('canvas');
+    cv.width = w * scale;
+    cv.height = h * scale;
+    const g = cv.getContext('2d');
+    if (!g) return '';
+    rows.forEach((row, y) => {
+      for (let x = 0; x < row.length; x++) {
+        const col = PAL[row[x]];
+        if (!col) continue;
+        g.fillStyle = col;
+        g.fillRect(x * scale, y * scale, scale, scale);
+      }
+    });
+    try {
+      cache[key] = cv.toDataURL('image/png');
+    } catch (e) {
+      cache[key] = '';
+    }
+    return cache[key];
+  }
+
+  const size = (name) => {
+    const rows = SPRITES[name] || [''];
+    return { w: Math.max(...rows.map((r) => r.length)), h: rows.length };
+  };
+
+  // An <img> tag for HTML (buttons, overlays).
+  const img = (name, px, cls) => {
+    const sz = size(name);
+    const h = px || sz.h * 2;
+    const w = Math.round((h * sz.w) / sz.h);
+    return '<img class="px ' + (cls || '') + '" src="' + url(name) + '" width="' + w + '" height="' + h + '" alt="" />';
+  };
+
+  root.RFPIX = { url, size, img, SPRITES, PAL };
+})(typeof self !== 'undefined' ? self : this);
+</script>
+<script>
+/* sound.js */
+/*
+ * RINGFENCE sound: chiptune effects and a small music loop, synthesised with
+ * WebAudio. There are no audio files, so the page stays one self-contained
+ * file. Browsers only allow audio after a user gesture, so the context is
+ * created on the first click.
+ */
+(function (root) {
+  'use strict';
+  let ctx = null;
+  let master = null;
+  let musicGain = null;
+  let muted = false;
+  let musicOn = true;
+  let musicTimer = null;
+
+  function ensure() {
+    if (ctx) return ctx;
+    const AC = root.AudioContext || root.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = muted ? 0 : 0.5;
+    master.connect(ctx.destination);
+    musicGain = ctx.createGain();
+    musicGain.gain.value = 0.18;
+    musicGain.connect(master);
+    return ctx;
+  }
+
+  // One square/triangle/saw blip with an optional pitch slide.
+  function tone(freq, dur, opts) {
+    const c = ensure();
+    if (!c || muted) return;
+    opts = opts || {};
+    const t0 = c.currentTime + (opts.delay || 0);
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = opts.type || 'square';
+    osc.frequency.setValueAtTime(freq, t0);
+    if (opts.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(30, opts.slide), t0 + dur);
+    const vol = opts.vol == null ? 0.25 : opts.vol;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g);
+    g.connect(opts.bus || master);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  // A burst of noise (explosions, glitches, alarms).
+  function noise(dur, opts) {
+    const c = ensure();
+    if (!c || muted) return;
+    opts = opts || {};
+    const t0 = c.currentTime + (opts.delay || 0);
+    const len = Math.max(1, Math.floor(c.sampleRate * dur));
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const filt = c.createBiquadFilter();
+    filt.type = opts.filter || 'lowpass';
+    filt.frequency.value = opts.freq || 1800;
+    const g = c.createGain();
+    g.gain.value = opts.vol == null ? 0.3 : opts.vol;
+    src.connect(filt);
+    filt.connect(g);
+    g.connect(master);
+    src.start(t0);
+  }
+
+  const seq = (notes, step, opts) => notes.forEach((f, n) => f && tone(f, step * 0.9, Object.assign({}, opts, { delay: n * step })));
+
+  const SFX = {
+    click: () => tone(880, 0.05, { vol: 0.12 }),
+    select: () => tone(660, 0.06, { vol: 0.15, type: 'triangle' }),
+    error: () => { tone(160, 0.12, { vol: 0.2 }); tone(120, 0.15, { vol: 0.2, delay: 0.1 }); },
+    observe: () => seq([523, 659, 784, 1047], 0.05, { vol: 0.12, type: 'triangle' }),
+    harden: () => { seq([392, 523, 784], 0.07, { vol: 0.18 }); tone(1568, 0.25, { vol: 0.08, type: 'triangle', delay: 0.21 }); },
+    ringfence: () => { tone(220, 0.08, { vol: 0.2 }); seq([330, 440, 554, 659], 0.06, { vol: 0.14, delay: 0.06 }); },
+    wall: () => { noise(0.08, { vol: 0.25, freq: 900 }); tone(110, 0.1, { vol: 0.2 }); },
+    deploy: () => seq([988, 1319], 0.05, { vol: 0.12, type: 'triangle' }),
+    breach: () => { noise(0.18, { vol: 0.25, filter: 'highpass', freq: 2500 }); tone(200, 0.2, { vol: 0.18, type: 'sawtooth', slide: 800 }); },
+    spread: () => tone(300, 0.08, { vol: 0.14, type: 'sawtooth', slide: 450 }),
+    recon: () => seq([1200, 0, 1200], 0.05, { vol: 0.08 }),
+    sensor: () => { noise(0.35, { vol: 0.35, freq: 1200 }); seq([880, 660, 880, 660], 0.07, { vol: 0.2 }); },
+    jewel: () => seq([659, 784, 988, 1319], 0.06, { vol: 0.18, type: 'triangle' }),
+    exfil: () => { tone(880, 0.6, { vol: 0.22, type: 'sawtooth', slide: 110 }); noise(0.5, { vol: 0.2, delay: 0.1 }); },
+    outage: () => { tone(90, 0.35, { vol: 0.25, type: 'sawtooth' }); tone(95, 0.35, { vol: 0.2, type: 'square', delay: 0.02 }); },
+    quarantine: () => seq([784, 659, 523, 392], 0.06, { vol: 0.16 }),
+    income: () => seq([1047, 1319], 0.05, { vol: 0.08, type: 'triangle' }),
+    turn: () => tone(523, 0.06, { vol: 0.1, type: 'triangle' }),
+    win: () => { seq([523, 659, 784, 1047, 0, 784, 1047], 0.12, { vol: 0.2 }); seq([262, 330, 392, 523], 0.24, { vol: 0.12, type: 'triangle' }); },
+    lose: () => { seq([392, 370, 349, 330, 0, 262], 0.16, { vol: 0.2 }); tone(65, 0.9, { vol: 0.2, type: 'triangle', delay: 0.6 }); },
+  };
+
+  // Music: a two-bar minor arpeggio and bass, looped, quiet.
+  const BASS = [110, 0, 110, 0, 131, 0, 98, 0];
+  const ARP = [440, 523, 659, 523, 494, 587, 659, 587, 392, 494, 587, 494, 440, 523, 659, 784];
+  function startMusic() {
+    const c = ensure();
+    if (!c || musicTimer) return;
+    let step = 0;
+    const beat = 0.16;
+    musicTimer = setInterval(() => {
+      if (muted || !musicOn) return;
+      const a = ARP[step % ARP.length];
+      if (a) tone(a, beat * 0.8, { vol: 0.12, type: 'square', bus: musicGain });
+      if (step % 2 === 0) {
+        const b = BASS[(step / 2) % BASS.length];
+        if (b) tone(b, beat * 1.8, { vol: 0.35, type: 'triangle', bus: musicGain });
+      }
+      step++;
+    }, beat * 1000);
+  }
+  function stopMusic() {
+    clearInterval(musicTimer);
+    musicTimer = null;
+  }
+
+  root.RFSOUND = {
+    play(name) {
+      try { if (SFX[name]) SFX[name](); } catch (e) { /* audio unavailable */ }
+    },
+    unlock() {
+      const c = ensure();
+      if (c && c.state === 'suspended') c.resume();
+      if (musicOn) startMusic();
+    },
+    setMuted(m) {
+      muted = !!m;
+      if (master) master.gain.value = muted ? 0 : 0.5;
+    },
+    setMusic(on) {
+      musicOn = !!on;
+      if (musicOn && ctx) startMusic();
+      if (!musicOn) stopMusic();
+    },
+    get muted() { return muted; },
+    get music() { return musicOn; },
+  };
+})(typeof self !== 'undefined' ? self : this);
+</script>
+<script>
 /* ui.js */
 /*
- * RINGFENCE browser UI: human Defender vs AI Attacker.
+ * RINGFENCE browser UI. Play the Defender against the AI Attacker, or the
+ * Attacker against the vDefend Defender bot.
  * Renders the board as inline SVG and drives turns through RF.act().
  * After editing, rebuild the standalone page: node ringfence/tools/build.js
  */
@@ -1958,6 +2692,9 @@ code { font-size: 0.9em; }
   'use strict';
   const RF = window.RF;
   const AI = window.RFAI;
+  const BOT = window.RFBOT;
+  const PIX = window.RFPIX;
+  const SND = window.RFSOUND || { play() {}, unlock() {}, setMuted() {}, setMusic() {} };
   const $ = (id) => document.getElementById(id);
   const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -1973,12 +2710,28 @@ code { font-size: 0.9em; }
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const VERSION = 'v0.6';
-  const settings = { level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true };
+  const VERSION = 'v0.7';
+  const settings = { role: 'defender', level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true, muted: false, music: true };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
   } catch (e) { /* storage unavailable: defaults are fine */ }
   if (AI.LEVELS[params.get('ai')]) settings.level = params.get('ai');
+  if (params.get('role') === 'attacker' || params.get('role') === 'defender') settings.role = params.get('role');
+
+  // When you play the Attacker, the difficulty picks the Defender bot's
+  // playbook. The AI Attacker wins about 55% / 37% / 23% against these
+  // (node ringfence/tools/sim.js 200 normal --strategy=...).
+  const BOT_LEVELS = {
+    easy: { strategy: 'territory', config: {}, name: 'Rookie admin', blurb: 'fences lots of apps, but forgets its jewels' },
+    normal: { strategy: 'careful', config: {}, name: 'vDefend team', blurb: 'follows the DFW 1-2-3-4 playbook' },
+    hard: { strategy: 'careful', config: { startInsight: 6 }, name: 'vDefend + SSP pros', blurb: 'the playbook, with a bigger budget' },
+  };
+  const DEF_LEVELS = {
+    easy: { name: 'Script kiddie', blurb: 'wanders around' },
+    normal: { name: 'Ransomware crew', blurb: 'goes for your jewels and your apps' },
+    hard: { name: 'APT', blurb: 'plans ahead and scouts' },
+  };
+  const isAtk = () => settings.role === 'attacker';
   const saveSettings = () => {
     try { localStorage.setItem('ringfence.settings', JSON.stringify(settings)); } catch (e) { /* ignore */ }
   };
@@ -2017,13 +2770,47 @@ code { font-size: 0.9em; }
     stats: null,
     record: null, // playtest record for the current game
     turnStart: 0,
+    role: 'defender', // the side the human plays in the current game
+    amode: 'move', // Attacker role: move | recon | exfil
+    hint: null, // Attacker role: the suggested action
   };
 
   function newStats() {
-    return { observe: 0, assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, isolate: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0 };
+    return { observe: 0, assess: 0, harden: 0, segment: 0, walls: 0, allow: 0, ringfence: 0, deploy: 0, swap: 0, isolate: 0, sensorHits: 0, quarantines: 0, recons: 0, outages: 0,
+      breach: 0, spread: 0, jewelsFound: 0, evicted: 0, maxBlast: 0 };
+  }
+
+  // The title screen: pick a side and a difficulty.
+  function showTitle() {
+    ui.phase = 'title';
+    ui.state = null;
+    ui.busy = false;
+    hide('overlay-end');
+    renderTitle();
+    show('overlay-title');
+    render();
+  }
+
+  function renderTitle() {
+    document.querySelectorAll('#title-level [data-level]').forEach((b) => b.classList.toggle('sel', b.dataset.level === settings.level));
+    document.querySelectorAll('#title-roles [data-role]').forEach((b) => b.classList.toggle('sel', b.dataset.role === settings.role));
+    $('title-def-foe').textContent = 'vs AI Attacker: ' + DEF_LEVELS[settings.level].name + ', ' + DEF_LEVELS[settings.level].blurb + '.';
+    $('title-atk-foe').textContent = 'vs Defender bot: ' + BOT_LEVELS[settings.level].name + ', ' + BOT_LEVELS[settings.level].blurb + '.';
+    renderSoundButtons();
+  }
+
+  function chooseRole(role) {
+    settings.role = role;
+    saveSettings();
+    $('set-level').value = settings.level;
+    hide('overlay-title');
+    SND.play('select');
+    newGame();
   }
 
   function newGame() {
+    ui.role = settings.role;
+    document.body.classList.toggle('role-attacker', ui.role === 'attacker');
     ui.phase = 'setup';
     ui.setup = RF.randomSetup(rng);
     ui.state = null;
@@ -2036,20 +2823,27 @@ code { font-size: 0.9em; }
     ui.selected = null;
     ui.busy = false;
     ui.stats = newStats();
+    ui.amode = 'move';
+    ui.hint = null;
     hide('overlay-end');
+    // As the Attacker, the Defender bot hides its tokens and moves first.
+    if (ui.role === 'attacker') return startGame();
     render();
   }
 
   function startGame() {
     const err = RF.validateSetup(ui.setup);
     if (err) return toast(err);
-    RF.applyConfig((AI.LEVELS[settings.level] || AI.LEVELS.normal).config);
+    const atk = ui.role === 'attacker';
+    RF.applyConfig(atk ? (BOT_LEVELS[settings.level] || BOT_LEVELS.normal).config : (AI.LEVELS[settings.level] || AI.LEVELS.normal).config);
     ui.state = RF.newGame(ui.setup, { rng });
     ui.record = {
       version: VERSION,
       startedAt: new Date().toISOString(),
       seed: seedStr,
+      role: ui.role,
       level: settings.level,
+      bot: atk ? BOT_LEVELS[settings.level].strategy : null,
       swapRule: settings.swapRule,
       threatHighlight: !!settings.showThreat,
       setup: Object.fromEntries(Object.entries(ui.setup).map(([c, t]) => [RF.cellName(+c), t])),
@@ -2062,7 +2856,16 @@ code { font-size: 0.9em; }
     ui.turnStart = ui.gameStart = Date.now();
     ui.phase = 'play';
     ui.selected = null;
+    SND.play('turn');
     addLog('sys', 'Round 1');
+    if (atk) {
+      addLog('A', 'You are the Attacker. The ' + BOT_LEVELS[settings.level].name + ' Defender has hidden 3 Crown Jewels and 3 Sensors in its apps. ' +
+        'You can see where the face-down tokens are, but not what they are.');
+      addLog('A', 'Win by stealing one jewel, or by getting footholds in ' + RF.CONFIG.ransomwareApps + ' apps (ransomware). ' +
+        'The Defender wins at ' + RF.CONFIG.scoreTarget + ' Zero Trust points, or if you are still out after round ' + RF.CONFIG.roundLimit + '.');
+      render();
+      return runDefenderBot();
+    }
     addLog('D', 'Your tokens are hidden. The Attacker can see where they are, but not what they are.');
     addLog('D', 'Observe an app to map its business flows (they show on your next turn). Ring-fence it to allow those flows and block the rest. ' +
       'Secure apps and hardened services earn Zero Trust points and Insight every round. Reach ' + RF.CONFIG.scoreTarget +
@@ -2073,31 +2876,68 @@ code { font-size: 0.9em; }
 
   // ------------------------------------------------------------- actions
 
+  // One sound per action: the most important thing that happened.
+  const SOUND_ORDER = ['exfil', 'sensor', 'jewel', 'quarantine', 'evict', 'outage', 'isolate', 'ringfence', 'harden', 'observe', 'deploy', 'recon', 'stone', 'discover', 'income', 'turn'];
+
   function apply(action, who) {
     const res = RF.act(ui.state, action);
     if (!res.ok) {
       toast(res.error);
+      SND.play('error');
       return null;
     }
+    const atk = ui.role === 'attacker';
     for (const ev of res.events) {
       let text = ev.text;
       const st = ui.stats;
       if (ev.kind === 'recon') {
         st.recons++;
         const t = ui.state.tokens[ev.cell];
-        if (t) text = 'Attacker ran Recon on ' + RF.cellName(ev.cell) + '. They now know it is a ' + t.type.toUpperCase() + '.';
+        if (t) text = atk ? 'Recon on ' + RF.cellName(ev.cell) + ': it is a ' + t.type.toUpperCase() + '.'
+          : 'Attacker ran Recon on ' + RF.cellName(ev.cell) + '. They now know it is a ' + t.type.toUpperCase() + '.';
       }
       if (ev.kind === 'sensor') st.sensorHits++;
       if (ev.kind === 'quarantine') st.quarantines++;
       if (ev.kind === 'outage') st.outages++;
+      if (ev.kind === 'jewel') st.jewelsFound++;
+      if (ev.kind === 'evict') st.evicted++;
       if (ev.kind === 'turn') {
         if (ui.state.turn === 'defender') addLog('sys', 'Round ' + ui.state.round);
         continue;
       }
+      if (atk) text = attackerText(ev, text);
+      if (text == null) continue;
       const big = ['exfil', 'sensor', 'jewel', 'quarantine', 'end', 'outage', 'discover', 'swap'].includes(ev.kind);
-      addLog(who, (who === 'A' && ev.kind === 'stone' ? 'Attacker: ' : '') + text, big);
+      addLog(who, (!atk && who === 'A' && ev.kind === 'stone' ? 'Attacker: ' : '') + text, big);
     }
+    ui.stats.maxBlast = Math.max(ui.stats.maxBlast, RF.ransomedApps(ui.state).length);
+    const kinds = res.events.map((e) => e.kind);
+    const top = SOUND_ORDER.find((k) => kinds.includes(k));
+    if (top === 'stone') SND.play(action.type === 'breach' ? 'breach' : 'spread');
+    else if (top === 'evict') SND.play('quarantine');
+    else if (top === 'isolate') SND.play('wall');
+    else if (top) SND.play(top);
     return res;
+  }
+
+  // Event texts are written for the Defender. As the Attacker you see the
+  // same events, minus what the Defender's Security Intelligence knows.
+  function attackerText(ev, text) {
+    const c = ev.cell != null ? RF.cellName(ev.cell) : '';
+    switch (ev.kind) {
+      case 'stone': return 'You: ' + text;
+      case 'jewel': return 'CROWN JEWEL found on ' + c + '! Exfiltrate it from your next turn, while its group still has a route to an exit.';
+      case 'sensor': return 'SENSOR on ' + c + '! SSP IDS/IPS caught you: the stone is removed and your turn ends.';
+      case 'quarantine': return 'QUARANTINED: your group on ' + ev.cells.map(RF.cellName).join(', ') + ' had no open edges left and was removed.';
+      case 'evict': return 'Your stone on ' + RF.REGION[ev.cell] + ' was evicted when the Defender hardened it.';
+      case 'observe': return 'Defender: Security Intelligence is watching app ' + ev.app + ' (' + RF.APPS[ev.app].name + '). It will know that app’s flows next turn.';
+      case 'discover': return /mapped app/.test(text) ? 'Defender: Security Intelligence has mapped ' + text.match(/mapped app (\w)/)[1] + '’s business flows.' : null;
+      case 'deploy': return 'Defender deploys a Sensor on ' + c + ' (you saw it, so you know what it is).';
+      case 'income': return 'Defender ' + text.charAt(0).toLowerCase() + text.slice(1);
+      case 'exfil': return 'You EXFILTRATED the Crown Jewel on ' + c + '!';
+      case 'end': return text;
+      default: return 'Defender: ' + text;
+    }
   }
 
   // ------------------------------------------------------ playtest record
@@ -2205,7 +3045,6 @@ code { font-size: 0.9em; }
     ui.busy = true;
     ui.recent = new Set();
     render();
-    const delay = () => parseInt(settings.speed, 10) || 600;
     const step = () => {
       const s = ui.state;
       if (ui.phase !== 'play') return;
@@ -2239,13 +3078,147 @@ code { font-size: 0.9em; }
     setTimeout(step, delay());
   }
 
+  // ------------------------------------------- Attacker role (vs the bot)
+
+  function attackerDo(action) {
+    const s = ui.state;
+    if (ui.busy || ui.phase !== 'play' || s.turn !== 'attacker') return;
+    ui.hint = null;
+    const res = apply(action, 'A');
+    if (!res) return render();
+    recordAction('A', action, res.events);
+    if (action.type in ui.stats) ui.stats[action.type]++;
+    ui.recent = new Set(action.cell != null ? [action.cell] : []);
+    ui.fresh = action.cell != null && s.stones[action.cell] ? action.cell : -1;
+    ui.selected = null;
+    if (s.winner) return finish();
+    // A Sensor ends the turn; so does running out of actions.
+    if (s.actionsLeft <= 0) {
+      ui.busy = true;
+      render();
+      setTimeout(() => { ui.busy = false; endAttackerTurn(); }, Math.max(500, delay()));
+      return;
+    }
+    if (ui.amode !== 'move' && !legalFor(ui.amode).size) ui.amode = 'move';
+    render();
+  }
+
+  function endAttackerTurn() {
+    const s = ui.state;
+    if (ui.busy || ui.phase !== 'play' || s.turn !== 'attacker') return;
+    ui.hint = null;
+    if (ui.record) ui.record.turnMs.push(Date.now() - ui.turnStart);
+    apply({ type: 'endTurn' }, 'A');
+    if (s.winner) return finish();
+    runDefenderBot();
+  }
+
+  function runDefenderBot() {
+    ui.busy = true;
+    ui.recent = new Set();
+    ui.mode = null;
+    render();
+    const strategy = (BOT_LEVELS[settings.level] || BOT_LEVELS.normal).strategy;
+    let guard = 0;
+    const step = () => {
+      const s = ui.state;
+      if (ui.phase !== 'play') return;
+      if (s.winner) return finish();
+      if (s.turn !== 'defender') {
+        ui.busy = false;
+        ui.fresh = -1;
+        ui.amode = 'move';
+        ui.turnStart = Date.now();
+        SND.play('turn');
+        render();
+        return;
+      }
+      let action = ++guard > 20 || s.actionsLeft <= 0 ? { type: 'endTurn' } : BOT.chooseAction(s, { strategy });
+      if (action.type !== 'endTurn' && !RF.act(RF.clone(s), action).ok) action = { type: 'endTurn' };
+      if (action.type === 'endTurn' && s.actionsLeft > 0) addLog('D', 'Defender saves its remaining actions.');
+      const res = apply(action, 'D');
+      if (res) recordAction('D', action, res.events);
+      if (res && action.type in ui.stats) ui.stats[action.type]++;
+      ui.recent = new Set();
+      if (res && action.cell != null) ui.recent.add(action.cell);
+      if (res && action.app) RF.APP_CELLS[action.app].forEach((c) => ui.recent.add(c));
+      if (res && action.edge) { const e = RF.EDGES[action.edge]; ui.recent.add(e.a); ui.recent.add(e.b); }
+      render();
+      setTimeout(step, action.type === 'endTurn' ? 250 : delay());
+    };
+    setTimeout(step, delay());
+  }
+
+  const delay = () => parseInt(settings.speed, 10) || 600;
+
+  // Cells where the chosen Attacker action is legal right now.
+  function legalFor(mode) {
+    const s = ui.state;
+    const out = new Map();
+    if (!s || s.turn !== 'attacker' || s.winner) return out;
+    for (const a of RF.legalAttackerActions(s)) {
+      if (a.cell == null) continue;
+      const m = a.type === 'breach' || a.type === 'spread' ? 'move' : a.type;
+      if (m !== mode) continue;
+      // Prefer a cheap Spread; keep the Breach for somewhere new.
+      const prev = out.get(a.cell);
+      if (!prev || (a.type === 'spread' && RF.spreadCost(s, a.cell) === 1)) out.set(a.cell, a);
+    }
+    return out;
+  }
+
+  function attackerClick(c) {
+    const s = ui.state;
+    if (ui.busy || s.turn !== 'attacker') {
+      ui.selected = c;
+      return render();
+    }
+    const tryModes = ui.amode === 'move' ? ['move', 'exfil', 'recon'] : [ui.amode];
+    for (const m of tryModes) {
+      const a = legalFor(m).get(c);
+      if (a) return attackerDo(a);
+    }
+    ui.selected = ui.selected === c ? null : c;
+    render();
+  }
+
+  function pickAttackerMode(m) {
+    if (ui.busy || ui.phase !== 'play' || ui.state.turn !== 'attacker') return;
+    if (m === 'hint') return showHint();
+    ui.amode = m;
+    ui.selected = null;
+    SND.play('click');
+    render();
+  }
+
+  function showHint() {
+    const { action } = AI.chooseAction(ui.state, { level: 'normal', rng });
+    ui.hint = action;
+    SND.play('select');
+    render();
+  }
+
+  const describeAttack = (a) => {
+    const c = a.cell != null ? RF.cellName(a.cell) : '';
+    if (a.type === 'breach') return 'Breach into ' + c;
+    if (a.type === 'spread') { const n = RF.spreadCost(ui.state, a.cell); return 'Spread to ' + c + (n > 1 ? ' (' + n + ' actions)' : ''); }
+    if (a.type === 'recon') return 'Recon the token on ' + c;
+    if (a.type === 'exfil') return 'Exfiltrate the jewel on ' + c;
+    return 'End your turn';
+  };
+
   function finish() {
     ui.phase = 'over';
     ui.busy = false;
     render();
     const s = ui.state;
-    const won = s.winner === 'defender';
-    $('end-title').textContent = won ? 'You defended the datacenter' : 'The Attacker got away with the data';
+    const atk = ui.role === 'attacker';
+    const won = s.winner === ui.role;
+    SND.play(won ? 'win' : 'lose');
+    $('overlay-end').classList.toggle('won', won);
+    $('end-title').textContent = atk
+      ? (won ? 'BREACH COMPLETE: you got in' : 'ACCESS DENIED: vDefend stopped you')
+      : (won ? 'You defended the datacenter' : 'The Attacker got away with the data');
     $('end-reason').textContent = s.reason + ' Zero Trust ' + s.score + '/' + RF.CONFIG.scoreTarget +
       ', blast radius ' + RF.ransomedApps(s).length + '/' + RF.CONFIG.ransomwareApps + ', round ' + Math.min(s.round, RF.CONFIG.roundLimit) + '.';
     const st = ui.stats;
@@ -2264,12 +3237,27 @@ code { font-size: 0.9em; }
       ['Isolated ' + st.isolate + ' edge' + (st.isolate === 1 ? '' : 's') + ' in an emergency', 'Incident response: quarantine, even when it breaks a business flow.'],
       ['Sensors caught the Attacker ' + st.sensorHits + '×', 'SSP threat prevention: distributed IDS/IPS inspects the traffic the firewall allows.'],
     ];
-    $('end-debrief').innerHTML = '<h3>In this game you…</h3><ul class="debrief">' +
+    if (atk) {
+      items.length = 0;
+      items.push(
+        ['Your blast radius peaked at ' + st.maxBlast + ' of the ' + RF.CONFIG.ransomwareApps + ' apps ransomware needs', 'Every app you reach without crossing a ring-fence widens the blast radius. Microsegmentation is what keeps it small.'],
+        ['The Defender hardened ' + hardened + ' of 3 shared services' + (st.evicted ? ', evicting you ' + st.evicted + '×' : ''),
+          'Stage 2: Infrastructure Services. A hardened DNS, NTP or LDAP is no longer a backdoor into every app that uses it, and DNS stops being an exit.'],
+        ['The Defender ring-fenced ' + fenced.length + ' app' + (fenced.length === 1 ? '' : 's') + (fenced.length ? ' (' + fenced.join(', ') + ')' : ''),
+          'Stage 4: Application microsegmentation. Allowed flows only, so every crossing cost you extra actions.'],
+        ['Observed ' + st.observe + ' app' + (st.observe === 1 ? '' : 's') + ' first, and caused ' + s.outages + ' outage' + (s.outages === 1 ? '' : 's'),
+          'Security Intelligence maps the business flows before enforcement, so lockdown doesn’t break the apps.'],
+        ['Sensors caught you ' + st.sensorHits + '×; Isolate blocked ' + st.isolate + ' edge' + (st.isolate === 1 ? '' : 's') + '; ' + st.quarantines + ' group' + (st.quarantines === 1 ? '' : 's') + ' quarantined',
+          'SSP distributed IDS/IPS inspects even the traffic the firewall allows, and incident response cuts you off.'],
+        ['You found ' + st.jewelsFound + ' jewel' + (st.jewelsFound === 1 ? '' : 's') + ' and ran Recon ' + st.recons + '×', 'Attackers need to find the crown jewels before they can steal them. Sensors make every guess risky.'],
+      );
+    }
+    $('end-debrief').innerHTML = '<h3>' + (atk ? 'What stood in your way' : 'In this game you…') + '</h3><ul class="debrief">' +
       items.map(([a, b]) => '<li><b>' + esc(a) + '</b><span>' + esc(b) + '</span></li>').join('') + '</ul>';
     if (ui.record) {
       ui.record.result = {
         winner: s.winner,
-        playerWon: s.winner === 'defender',
+        playerWon: s.winner === ui.role,
         reason: s.reason,
         rounds: Math.min(s.round, RF.CONFIG.roundLimit),
         score: s.score,
@@ -2298,6 +3286,10 @@ code { font-size: 0.9em; }
     }
     if (ui.phase !== 'play') {
       if (cellEl) { ui.selected = +cellEl.dataset.cell; render(); }
+      return;
+    }
+    if (ui.role === 'attacker') {
+      if (cellEl) attackerClick(+cellEl.dataset.cell);
       return;
     }
     if (ui.mode === 'segment' && edgeEl) return segmentClick(edgeEl.dataset.edge);
@@ -2430,6 +3422,11 @@ code { font-size: 0.9em; }
       for (let i = 0; i < RF.N; i++) if (!RF.isInfra(i)) out.add(i);
       return out;
     }
+    if (s && ui.role === 'attacker') {
+      if (ui.busy || ui.phase !== 'play') return out;
+      legalFor(ui.amode).forEach((a, c) => out.add(c));
+      return out;
+    }
     if (!s || ui.busy || s.turn !== 'defender') return out;
     for (let i = 0; i < RF.N; i++) {
       if (ui.mode === 'harden' && RF.isInfra(i) && !s.hardened[i]) out.add(i);
@@ -2456,6 +3453,8 @@ code { font-size: 0.9em; }
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.textContent = '';
     const s = ui.state;
+    // As the Attacker you only see what the Attacker may know, until the game ends.
+    const vs = s && ui.role === 'attacker' && ui.phase !== 'over' ? RF.attackerView(s) : s;
     const setupTokens = ui.phase === 'setup' ? ui.setup : null;
 
     // Internet band and axes.
@@ -2476,20 +3475,21 @@ code { font-size: 0.9em; }
       if (infra) {
         el('rect', { class: 'infra-ring svc-' + reg, x: cx(i) + 3, y: cy(i) + 3, width: CS - 6, height: CS - 6, rx: 6 }, cells);
         el('text', { class: 't-infra', x: cx(i) + CS / 2, y: cy(i) + 15, 'text-anchor': 'middle' }, cells).textContent = reg;
+        sprite(reg.toLowerCase(), cx(i) + CS / 2, cy(i) + 31, 22, cells, 'svc-icon');
         if (!(s && s.hardened[i])) {
           el('text', { class: 't-users', x: cx(i) + CS / 2, y: cy(i) + CS - 8, 'text-anchor': 'middle' }, cells).textContent =
             '→ ' + RF.INFRA_USERS[reg].join(' ');
         }
-        if (s && s.hardened[i]) {
-          const x = cx(i) + CS / 2;
-          const y = cy(i) + 22;
-          el('path', { class: 'shield', d: `M${x} ${y} l14 5 v10 c0 9 -7 14 -14 17 c-7 -3 -14 -8 -14 -17 v-10 z` }, cells);
-        }
-      } else if (isFirstCellOfApp(i)) {
+        if (s && s.hardened[i]) sprite('shield', cx(i) + CS / 2, cy(i) + 50, 17, cells, 'hard-shield');
+      } else {
+        sprite('rack', cx(i) + CS / 2, cy(i) + CS / 2 + 2, 30, cells, 'rack');
+      }
+      if (!infra && isFirstCellOfApp(i)) {
         let mark = '';
         if (s && s.fenced[reg]) mark += ' ◎';
-        if (s && s.observed[reg] === -1) mark += ' 👁';
-        else if (s && s.observed[reg] != null) mark += ' 👁…';
+        if (vs && vs.observed[reg] === -1) mark += ' 👁';
+        else if (vs && vs.observed[reg] != null) mark += ' 👁…';
+        if (s && RF.APP_CELLS[reg].some((c) => s.stones[c])) sprite('skull', cx(i) + CS - 10, cy(i) + CS - 10, 11, cells, 'skull');
         el('text', { class: 't-app', x: cx(i) + 5, y: cy(i) + 13 }, cells).textContent = reg + mark;
         // Dots: the shared services this app depends on.
         RF.APPS[reg].uses.forEach((svc, n) => {
@@ -2546,7 +3546,7 @@ code { font-size: 0.9em; }
           el('line', { class: 'fence preview', x1, y1, x2, y2 }, flows);
         }
       }
-      const keys = new Set([...Object.keys(s.discovered), ...Object.keys(s.allows)]);
+      const keys = new Set([...Object.keys(vs.discovered), ...Object.keys(s.allows)]);
       if (ui.phase === 'over') Object.keys(s.flows).forEach((k) => keys.add(k));
       if (ui.draft && ui.mode === 'allow') ui.draft.edges.forEach((k) => keys.add(k));
       for (const key of keys) {
@@ -2568,20 +3568,36 @@ code { font-size: 0.9em; }
     const pieces = el('g', {}, svg);
     const tokens = setupTokens
       ? Object.fromEntries(Object.entries(setupTokens).map(([c, type]) => [c, { type, faceUp: false, recon: false }]))
-      : (s ? s.tokens : {});
+      : (vs ? vs.tokens : {});
     for (const c in tokens) drawToken(+c, tokens[c], pieces);
     if (s) {
       for (let i = 0; i < RF.N; i++) {
         if (!s.stones[i]) continue;
         const x = cx(i) + CS / 2;
         const y = cy(i) + CS / 2 + 2;
-        el('circle', { class: 'stone' + (i === ui.fresh ? ' fresh' : ''), cx: x, cy: y, r: 15 }, pieces);
-        el('circle', { class: 'stone-shine', cx: x - 5, cy: y - 5, r: 4 }, pieces);
+        el('ellipse', { class: 'bug-shadow', cx: x, cy: y + 14, rx: 12, ry: 3 }, pieces);
+        const g = el('g', { class: 'bug' + (i === ui.fresh ? ' fresh' : '') + ((RF.rowOf(i) + RF.colOf(i)) % 2 ? ' alt' : '') }, pieces);
+        sprite((RF.rowOf(i) + RF.colOf(i)) % 2 ? 'virus2' : 'virus', x, y, 30, g, 'sprite');
+      }
+    }
+    // Attacker role: the suggested move, and moves that cost extra actions.
+    if (s && ui.role === 'attacker' && ui.phase === 'play' && !ui.busy && s.turn === 'attacker') {
+      if (ui.hint && ui.hint.cell != null) {
+        el('rect', { class: 'hint-cell', x: cx(ui.hint.cell) + 3, y: cy(ui.hint.cell) + 3, width: CS - 6, height: CS - 6, rx: 6, 'pointer-events': 'none' }, pieces);
+      }
+      if (ui.amode === 'move') {
+        legalFor('move').forEach((a, c) => {
+          const n = a.type === 'spread' ? RF.spreadCost(s, c) : 1;
+          if (n > 1) el('text', { class: 't-cost', x: cx(c) + CS - 5, y: cy(c) + 14, 'text-anchor': 'end' }, pieces).textContent = '×' + n;
+        });
+        legalFor('exfil').forEach((a, c) => {
+          el('text', { class: 't-exfil', x: cx(c) + CS / 2, y: cy(c) + 12, 'text-anchor': 'middle' }, pieces).textContent = 'EXFIL';
+        });
       }
     }
 
     // Threat highlight: the Attacker's quickest route to a real jewel.
-    const threat = settings.showThreat && s && ui.phase === 'play' && s.turn === 'defender' ? AI.defenderThreat(s) : null;
+    const threat = settings.showThreat && s && ui.role === 'defender' && ui.phase === 'play' && s.turn === 'defender' ? AI.defenderThreat(s) : null;
     if (threat) {
       const g = el('g', { class: 'threat ' + threatLevel(threat), 'pointer-events': 'none' }, svg);
       threat.path.forEach((c) => {
@@ -2746,24 +3762,30 @@ code { font-size: 0.9em; }
     return el('rect', attrs, parent);
   }
 
+  // A pixel sprite centred on (x, y), h units tall.
+  function sprite(name, x, y, h, parent, cls) {
+    const href = PIX && PIX.url(name);
+    if (!href) return null;
+    const sz = PIX.size(name);
+    const w = (h * sz.w) / sz.h;
+    return el('image', { href, x: x - w / 2, y: y - h / 2, width: w, height: h, class: 'px ' + (cls || ''), 'pointer-events': 'none' }, parent);
+  }
+
   function drawToken(c, t, parent) {
     const hasStone = ui.state && ui.state.stones[c];
     const x = hasStone ? cx(c) + CS - 14 : cx(c) + CS / 2;
     const y = hasStone ? cy(c) + CS - 14 : cy(c) + CS / 2 + 2;
     const r = hasStone ? 10 : 14;
-    const g = el('g', {}, parent);
-    el('rect', { class: 'tok-card' + (t.faceUp ? ' up' : ''), x: x - r, y: y - r, width: 2 * r, height: 2 * r, rx: 4 }, g);
-    const k = r / 14;
-    if (t.type === 'jewel') {
-      el('polygon', { class: 'tok-jewel', points: [[0, -9], [8, -2], [0, 9], [-8, -2]].map(([a, b]) => (x + a * k) + ',' + (y + b * k)).join(' ') }, g);
-    } else if (t.type === 'sensor') {
-      el('circle', { class: 'tok-sensor', cx: x, cy: y, r: 7.5 * k }, g);
-      el('circle', { class: 'tok-sensor', cx: x, cy: y, r: 4 * k }, g);
-      el('circle', { class: 'tok-sensor-dot', cx: x, cy: y, r: 1.8 * k }, g);
+    const g = el('g', { class: 'token' + (t.faceUp ? ' up' : '') }, parent);
+    if (t.type === 'unknown') {
+      sprite('card', x, y, 2 * r + 2, g, 'card');
+    } else {
+      el('rect', { class: 'tok-card' + (t.faceUp ? ' up' : ''), x: x - r, y: y - r, width: 2 * r, height: 2 * r, rx: 3 }, g);
+      sprite(t.type === 'jewel' ? 'gem' : 'sensor', x, y, 1.45 * r, g, t.type === 'jewel' ? 'gem' : 'radar');
     }
-    if (t.recon && !t.faceUp) el('circle', { class: 'tok-seen', cx: x + r - 1, cy: y - r + 1, r: 4 }, g);
+    if (t.recon && !t.faceUp) sprite('eye', x + r - 1, y - r + 1, 8, g, 'seen');
     // The Attacker's current jewel odds for this token (public information).
-    if (ui.state && !t.faceUp && !hasStone) {
+    if (ui.state && !t.faceUp && !hasStone && !(ui.role === 'attacker' && t.type !== 'unknown')) {
       const odds = RF.attackerJewelOdds(ui.state)[c];
       if (odds != null) el('text', { class: 't-odds', x, y: y + r + 9, 'text-anchor': 'middle' }, g).textContent = Math.round(odds * 100) + '%';
     }
@@ -2779,7 +3801,8 @@ code { font-size: 0.9em; }
   }
 
   function cellInfo(i) {
-    const s = ui.state;
+    const atk = ui.role === 'attacker' && ui.phase !== 'over';
+    const s = atk && ui.state ? RF.attackerView(ui.state) : ui.state;
     let text = cellTitle(i) + '.';
     const exits = [];
     if (RF.rowOf(i) === 0) exits.push('internet edge');
@@ -2788,10 +3811,11 @@ code { font-size: 0.9em; }
     if (exits.length) text += ' Exit: ' + exits.join(', ') + '.';
     const t = s && s.tokens[i];
     if (t) {
-      text += ' Token: ' + (t.faceUp ? 'revealed ' : 'face-down ') + t.type + '.';
+      text += ' Token: ' + (t.faceUp ? 'revealed ' : 'face-down ') + (t.type === 'unknown' ? 'token' : t.type) + '.';
       if (!t.faceUp) {
         const odds = Math.round(RF.attackerJewelOdds(s)[i] * 100);
-        text += t.recon ? ' The Attacker has scouted it and knows what it is.' : ' The Attacker thinks it is a jewel with ' + odds + '% odds.';
+        if (atk) text += t.recon ? ' You scouted it.' : ' Odds it is a jewel: ' + odds + '%. Recon it from a neighbouring stone to find out for sure.';
+        else text += t.recon ? ' The Attacker has scouted it and knows what it is.' : ' The Attacker thinks it is a jewel with ' + odds + '% odds.';
       }
     }
     const other = (n) => RF.cellName(n.cell) + ' (' + (RF.APPS[RF.REGION[n.cell]] ? RF.APPS[RF.REGION[n.cell]].name : RF.REGION[n.cell]) + ')';
@@ -2809,7 +3833,15 @@ code { font-size: 0.9em; }
     status.className = 'status';
     pips.className = 'pips';
     $('setup-panel').hidden = ui.phase !== 'setup';
-    $('action-panel').hidden = ui.phase === 'setup';
+    $('action-panel').hidden = ui.phase === 'setup' || ui.phase === 'title';
+    if (ui.phase === 'title') {
+      status.textContent = 'Choose your side';
+      pips.innerHTML = '';
+      $('meters').innerHTML = '';
+      $('threat').hidden = true;
+      renderLog();
+      return;
+    }
 
     if (ui.phase === 'setup') {
       status.textContent = 'Setup: hide your Crown Jewels';
@@ -2828,6 +3860,11 @@ code { font-size: 0.9em; }
       return;
     }
 
+    const atkRole = ui.role === 'attacker';
+    $('actions').hidden = atkRole;
+    $('actions-atk').hidden = !atkRole;
+    $('btn-undo').hidden = atkRole;
+    if (atkRole) return renderAttackerPanel();
     const myTurn = s.turn === 'defender' && !s.winner;
     if (s.winner) status.textContent = s.winner === 'defender' ? 'You win!' : 'The Attacker wins';
     else if (myTurn) status.textContent = 'Round ' + s.round + ' of ' + RF.CONFIG.roundLimit + ': your move';
@@ -2885,6 +3922,100 @@ code { font-size: 0.9em; }
     renderHint(active);
     renderThreat();
     renderLog();
+  }
+
+  // The panel when you play the Attacker.
+  function renderAttackerPanel() {
+    const s = ui.state;
+    const status = $('status');
+    const pips = $('pips');
+    const myTurn = s.turn === 'attacker' && !s.winner;
+    if (s.winner) status.textContent = s.winner === 'attacker' ? 'You win!' : 'The Defender wins';
+    else if (myTurn) status.textContent = 'Round ' + s.round + ' of ' + RF.CONFIG.roundLimit + ': your move';
+    else status.textContent = 'Round ' + s.round + ': the Defender is moving…';
+    status.classList.toggle('attacker', myTurn);
+    pips.classList.toggle('attacker', true);
+    pips.innerHTML = '';
+    for (let n = 0; n < (s.turn === 'attacker' ? RF.CONFIG.attackerActions : RF.CONFIG.actionsPerTurn); n++) {
+      const p = document.createElement('span');
+      p.className = 'pip' + (n < s.actionsLeft && !s.winner ? ' on' : '');
+      pips.appendChild(p);
+    }
+    const secure = RF.secureApps(s).length;
+    const hardenedN = RF.INFRA_CELLS.filter((c) => s.hardened[c]).length;
+    const ztRate = secure * RF.CONFIG.ztPerSecureApp + hardenedN * RF.CONFIG.ztPerHardened;
+    const blast = RF.ransomedApps(s).length;
+    const found = Object.values(s.tokens).filter((t) => t.faceUp && t.type === 'jewel').length;
+    const fencedN = Object.keys(s.fenced).filter((a) => s.fenced[a]).length;
+    $('meters').innerHTML =
+      meter('Your blast radius', blast + '<small> / ' + RF.CONFIG.ransomwareApps + ' apps</small>', Math.min(100, (100 * blast) / RF.CONFIG.ransomwareApps), 'danger') +
+      meter('Defender Zero Trust', s.score + '<small> / ' + RF.CONFIG.scoreTarget + ' · +' + ztRate + '/round</small>', Math.max(0, Math.min(100, (100 * s.score) / RF.CONFIG.scoreTarget)), '') +
+      meter('Stones', s.stonesLeft + '<small> in hand</small>', null, '') +
+      meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
+      '<div class="meter wide"><span>Jewels found <b>' + found + '</b></span><span>Sensors hit <b' + (ui.stats.sensorHits ? ' class="bad"' : '') + '>' + ui.stats.sensorHits +
+      '</b></span><span>Breach <b>' + (s.breachUsed || !myTurn ? 'used' : 'ready') + '</b></span><span>Def. Insight <b>' + s.insight + '</b></span><span>Fenced <b>' + fencedN +
+      '</b></span><span>Hardened <b>' + hardenedN + '/3</b></span></div>';
+
+    const active = myTurn && !ui.busy && ui.phase === 'play';
+    const n = { move: legalFor('move').size, recon: legalFor('recon').size, exfil: legalFor('exfil').size };
+    document.querySelectorAll('#actions-atk .act').forEach((b) => {
+      const m = b.dataset.amode;
+      b.disabled = !active || (m !== 'hint' && !n[m]);
+      b.classList.toggle('active', ui.amode === m);
+      b.classList.toggle('pulse', m === 'exfil' && active && n.exfil > 0);
+    });
+    const end = $('btn-end');
+    end.disabled = !active;
+    end.classList.toggle('pulse', active && !n.move && !n.recon && !n.exfil);
+    const hint = $('hint');
+    let html;
+    if (ui.phase === 'over') html = ui.selected != null ? esc(cellInfo(ui.selected)) : 'Game over. Every token and flow is now revealed. Tap cells to review them.';
+    else if (!active) html = ui.selected != null ? esc(cellInfo(ui.selected)) : 'The Defender bot is moving. Watch the board and the log.';
+    else if (ui.hint) {
+      html = '<b>Hint:</b> ' + esc(describeAttack(ui.hint)) + '.' +
+        '<div class="row"><button class="btn primary" data-hint="do-hint" type="button">Do it</button><button class="btn" data-hint="cancel" type="button">Dismiss</button></div>';
+    } else if (ui.amode === 'move') {
+      html = '<b>🦠 Move.</b> Tap a highlighted cell. ' + (s.breachUsed ? '' : '<b>Breach</b> in from row 1 or the storefront H (once per turn), or ') +
+        '<b>spread</b> from your stones. ×2 means crossing into another app, through an allowed flow or a service backdoor, costs extra actions. Face-down tokens might be Sensors!';
+      if (n.exfil) html += ' <b class="bad">A jewel is ready: tap EXFIL to win.</b>';
+      if (ui.selected != null) html += '<div class="small muted" style="margin-top:6px">' + esc(cellInfo(ui.selected)) + '</div>';
+    } else if (ui.amode === 'recon') {
+      html = '<b>🔍 Recon.</b> Tap a face-down token next to one of your stones to learn whether it is a Jewel or a Sensor (1 action).';
+    } else if (ui.amode === 'exfil') {
+      html = '<b>💾 Exfil.</b> Tap your stone on a revealed jewel. Its group needs a route to an exit: row 1, the storefront H, or an unhardened DNS.';
+    }
+    hint.innerHTML = html;
+    renderAttackerIntel();
+    renderLog();
+  }
+
+  // Attacker role: a short briefing instead of the Defender's threat box.
+  function renderAttackerIntel() {
+    const box = $('threat');
+    const s = ui.state;
+    if (!s || ui.phase !== 'play' || s.winner) { box.hidden = true; return; }
+    box.hidden = false;
+    const v = RF.attackerView(s);
+    const odds = RF.attackerJewelOdds(v);
+    const found = Object.keys(s.tokens).filter((c) => s.tokens[c].faceUp && s.tokens[c].type === 'jewel').map(Number);
+    const bets = Object.keys(odds).map(Number).filter((c) => !v.tokens[c].faceUp && v.tokens[c].type !== 'sensor')
+      .sort((a, b) => odds[b] - odds[a]).slice(0, 3);
+    const lines = [];
+    let lvl = 'calm';
+    found.forEach((c) => {
+      const t = s.tokens[c];
+      const out = RF.groupHasExit(s, RF.groupOf(s, c));
+      if (t.revealedRound === s.round && s.turn === 'attacker') lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> found. Keep a route to an exit open: you can exfiltrate it next turn.');
+      else if (out) { lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> is ready to <b>exfiltrate</b>!'); lvl = 'danger'; }
+      else lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b>: its group has no route to an exit. Connect it to row 1, H or an unhardened DNS.');
+    });
+    if (bets.length) lines.push('Best bets for a jewel: ' + bets.map((c) => '<b>' + RF.cellName(c) + '</b> ' + Math.round(odds[c] * 100) + '%').join(', ') + '.');
+    const held = RF.ransomedApps(s).length;
+    lines.push('Ransomware: footholds in <b>' + held + '</b> of ' + RF.CONFIG.ransomwareApps + ' apps' + (held >= RF.CONFIG.ransomwareApps - 2 ? ' (close!)' : '') + '.');
+    const dns = RF.INFRA_CELL.DNS;
+    if (!s.hardened[dns]) lines.push('<span class="muted">DNS is unhardened: it is a backdoor into ' + RF.INFRA_USERS.DNS.join(' ') + ' and an exit (DNS tunnelling).</span>');
+    box.className = 'threat-box intel ' + lvl;
+    box.innerHTML = '<b>Intel</b><div class="small" style="margin-top:4px">' + lines.join('<br>') + '</div>';
   }
 
   function meter(k, v, pct, cls) {
@@ -3036,6 +4167,8 @@ code { font-size: 0.9em; }
       else if (h === 'publish') return publishAllow();
       else if (h === 'isolate' && ui.draft && ui.draft.edge) return defenderDo({ type: 'isolate', edge: ui.draft.edge });
       else if (h === 'fence') return confirmFence();
+      else if (h === 'do-hint' && ui.hint) return ui.hint.type === 'endTurn' ? endAttackerTurn() : attackerDo(ui.hint);
+      if (h === 'cancel') ui.hint = null;
       else if (h === 'commit' && ui.pending.length) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
       else if (h === 'swap-real' || h === 'swap-bluff')
         return defenderDo({ type: 'swap', a: ui.draft.a, b: ui.draft.b, really: h === 'swap-real' });
@@ -3046,15 +4179,51 @@ code { font-size: 0.9em; }
       const sg = b && ui.suggestions && ui.suggestions[+b.dataset.suggest];
       if (sg) defenderDo(sg.action);
     });
+    $('actions-atk').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-amode]');
+      if (b && !b.disabled) pickAttackerMode(b.dataset.amode);
+    });
     $('btn-undo').addEventListener('click', undo);
-    $('btn-end').addEventListener('click', endDefenderTurn);
+    $('btn-end').addEventListener('click', () => (ui.role === 'attacker' ? endAttackerTurn() : endDefenderTurn()));
     $('btn-random').addEventListener('click', () => { ui.setup = RF.randomSetup(rng); render(); });
     $('btn-start').addEventListener('click', startGame);
     $('btn-new').addEventListener('click', () => {
       if (ui.phase === 'play' && !confirm('Abandon this game and start a new one?')) return;
-      newGame();
+      showTitle();
     });
     $('btn-again').addEventListener('click', newGame);
+    $('btn-switch').addEventListener('click', showTitle);
+    $('title-roles').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-role]');
+      if (b) chooseRole(b.dataset.role);
+    });
+    $('title-level').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-level]');
+      if (!b) return;
+      settings.level = b.dataset.level;
+      saveSettings();
+      $('set-level').value = settings.level;
+      SND.play('click');
+      renderTitle();
+    });
+    $('title-rules').addEventListener('click', () => show('overlay-rules'));
+    // Browsers only start audio after a user gesture.
+    document.addEventListener('pointerdown', () => SND.unlock(), { once: true });
+    document.addEventListener('keydown', () => SND.unlock(), { once: true });
+    SND.setMuted(settings.muted);
+    SND.setMusic(settings.music);
+    document.querySelectorAll('[data-sound]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.sound === 'mute') {
+        settings.muted = !settings.muted;
+        SND.setMuted(settings.muted);
+      } else {
+        settings.music = !settings.music;
+        SND.setMusic(settings.music);
+      }
+      saveSettings();
+      renderSoundButtons();
+      SND.play('click');
+    }));
     $('btn-review').addEventListener('click', () => hide('overlay-end'));
     $('btn-rules').addEventListener('click', () => show('overlay-rules'));
     $('btn-rules-close').addEventListener('click', () => hide('overlay-rules'));
@@ -3110,12 +4279,21 @@ code { font-size: 0.9em; }
       if (e.target.closest('select, input')) return;
       if (e.key === 'Escape') {
         hide('overlay-rules');
+        ui.hint = null;
         ui.mode = null;
         ui.pending = [];
         ui.draft = null;
         return render();
       }
       if (ui.phase !== 'play') return;
+      if (ui.role === 'attacker') {
+        const amap = { 1: 'move', 2: 'recon', 3: 'exfil', h: 'hint', H: 'hint' };
+        if (amap[e.key]) {
+          const b = document.querySelector('#actions-atk [data-amode="' + amap[e.key] + '"]');
+          if (b && !b.disabled) pickAttackerMode(amap[e.key]);
+        } else if (e.key === 'e' || e.key === 'E') endAttackerTurn();
+        return;
+      }
       const map = { 1: 'observe', 2: 'harden', 3: 'ringfence', 4: 'deploy', 5: 'isolate' };
       if (map[e.key]) {
         const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
@@ -3124,16 +4302,40 @@ code { font-size: 0.9em; }
       else if (e.key === 'e' || e.key === 'E') endDefenderTurn();
     });
 
-    let seenRules = false;
-    try { seenRules = localStorage.getItem('ringfence.seenRules') === '1'; } catch (e) { /* ignore */ }
-    if (!seenRules) {
-      show('overlay-rules');
-      try { localStorage.setItem('ringfence.seenRules', '1'); } catch (e) { /* ignore */ }
-    }
+  }
+
+  // Pixel sprites in the HTML (title screen, legend).
+  function paintSprites() {
+    if (!PIX) return;
+    document.querySelectorAll('[data-sprite]').forEach((e) => {
+      if (!e.firstChild) e.innerHTML = PIX.img(e.dataset.sprite, 44);
+    });
+    const art = document.querySelector('.title-art');
+    if (art && !art.querySelector('img')) art.innerHTML = PIX.img('shield', 40) + PIX.img('gem', 40) + PIX.img('virus', 40);
+    const lg = document.querySelector('.lg-stone');
+    const u = PIX.url('virus');
+    if (lg && u) { lg.style.setProperty('--lg-virus', 'url("' + u + '")'); lg.classList.add('px-ok'); }
+  }
+
+  function renderSoundButtons() {
+    document.querySelectorAll('[data-sound="mute"]').forEach((b) => {
+      b.textContent = settings.muted ? '🔇' : '🔊';
+      b.title = settings.muted ? 'Sound off' : 'Sound on';
+      b.setAttribute('aria-pressed', String(!settings.muted));
+    });
+    document.querySelectorAll('[data-sound="music"]').forEach((b) => {
+      b.classList.toggle('off', !settings.music);
+      b.title = settings.music ? 'Music on' : 'Music off';
+      b.setAttribute('aria-pressed', String(settings.music));
+    });
   }
 
   wire();
-  newGame();
+  paintSprites();
+  renderSoundButtons();
+  // ?role=attacker or ?role=defender skips the title screen.
+  if (params.get('role')) newGame();
+  else showTitle();
 
   // Handy for debugging in the console.
   window.ringfence = { ui, render };

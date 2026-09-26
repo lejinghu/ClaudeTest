@@ -2,8 +2,38 @@
 
 A playable browser prototype of the RINGFENCE design
 ([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md), Section
-0 has the current rules). You play the **Defender** and an AI plays the
-**Attacker**.
+0 has the current rules).
+
+**v0.7: play either side, in pixel art with chiptune sound.**
+- The title screen asks which side you want:
+  - **Defender** against the AI Attacker.
+  - **Attacker** against the vDefend Defender bot (`js/defender-ai.js`). The
+    bot hides its tokens and moves first.
+- The difficulty sets the opponent:
+  - As Defender, it sets the AI Attacker level.
+  - As Attacker, it sets the bot's playbook. Easy is `territory`, Normal is
+    `careful`, and Hard is `careful` with 6 starting Insight. The AI Attacker
+    wins about 55%, 37% and 23% of games against these.
+- As Attacker you see only what the Attacker may know. That means
+  face-down tokens with your jewel odds, walls, fences and allow rules, but
+  not the Defender's flow data. Everything is revealed when the game ends.
+- Attacker controls:
+  - 🦠 **Move** (Breach or Spread). Tapping a highlighted cell also exfils or
+    recons when that's the only move there.
+  - 🔍 **Recon**, 💾 **Exfil**, and 💡 **Hint**, which shows what the AI
+    Attacker would do.
+  - Your turn ends by itself when you run out of actions.
+  - The end screen shows *what stood in your way*, mapped to vDefend
+    features.
+- Pixel art, the retro theme and the sound:
+  - Sprites are drawn from string grids in `js/pixel.js`: virus stones,
+    gems, radar sensors, face-down cards, NTP clock, DNS globe, LDAP key,
+    shields and server racks.
+  - All sound effects and the music loop are synthesized with WebAudio in
+    `js/sound.js`, with no audio files.
+  - 🔊 mutes and ♪ toggles the music.
+  - The fonts are *Press Start 2P* and *VT323* from Google Fonts. Without
+    network access the page falls back to a monospace font.
 
 **v0.6 is a territory game.**
 - Observe apps to map their flows, then ring-fence them.
@@ -46,8 +76,8 @@ v0.3 removed the Dev/Prod environments and the Decoys. It adds a secret
 3 Insight and is limited to 2 per game. The red % under each token shows the
 Attacker's current jewel odds for it.
 
-It's plain HTML, CSS and JS with no dependencies. `index.html` is **one
-self-contained file**, with the CSS and JS inlined, so it renders the same
+It's plain HTML, CSS and JS with no dependencies (the two web fonts are
+optional). `index.html` is **one self-contained file**, with the CSS and JS inlined, so it renders the same
 wherever it's opened: GitHub Pages, straight from disk, a file preview, or
 as a single downloaded or attached file.
 
@@ -64,14 +94,17 @@ as a single downloaded or attached file.
 - `?swap=score` switches to the alternative swap rule (−1 score each, no
   limit) for playtesting. You can also change it in **Settings**.
 - `?seed=abc` replays the same random token setup and AI dice rolls.
-- `?ai=easy|normal|hard` sets the AI level. You can also change it in
-  **Settings**.
+- `?ai=easy|normal|hard` sets the difficulty. You can also change it on the
+  title screen or in **Settings**.
+- `?role=defender|attacker` skips the title screen and starts on that side.
 - In **Settings**, turn on *Show the AI's reasoning* to see its target and
   distance estimate in the log.
 
 ### Keyboard shortcuts
 
-`1`–`8` choose an action, `Esc` cancels, `U` undoes, `E` ends your turn.
+As Defender, `1`–`5` choose an action, `Esc` cancels, `U` undoes and `E`
+ends your turn. As Attacker, `1` is Move, `2` Recon, `3` Exfil, `H` a hint
+and `E` ends your turn.
 
 ## Playtesting
 
@@ -108,11 +141,14 @@ targets to compare against.
 | `css/style.css` | Styles. |
 | `js/rules.js` | Rules engine: board data, legality, turn flow, scoring, quarantine, win checks. It has no DOM code and runs in both the browser and Node. |
 | `js/ai.js` | Attacker AI (see below). |
-| `js/ui.js` | SVG board, input handling, event log, undo, end-of-game debrief. |
+| `js/defender-ai.js` | The Defender bot (strategies `careful`, `territory`, `fortress`, `infra`, `hasty`, `mindless`). It's your opponent when you play the Attacker, and the simulator uses it too. |
+| `js/pixel.js` | Pixel-art sprites as string grids, rendered once to PNG data URLs. |
+| `js/sound.js` | WebAudio chiptune sound effects and music loop. |
+| `js/ui.js` | Title screen, SVG board for either side, input handling, turn runners for both opponents, event log, undo, end-of-game debrief. |
 | `tools/build.js` | Inlines `css/` and `js/` into `index.html`. Run it after any change; `--check` reports whether `index.html` is stale. The Pages workflow also runs it before deploying. |
 | `tools/sim.js` | Headless simulator for balance numbers, plus an invariant fuzzer. |
 | `tools/playtest-report.js` | Summarises downloaded human playtest records. |
-| `tools/defender-bot.js` | A simple scripted Defender, used only by the simulator. |
+| `tools/defender-bot.js` | Re-exports `js/defender-ai.js` for older scripts. |
 
 ## The Attacker AI
 
