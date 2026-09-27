@@ -1504,7 +1504,7 @@
     $('btn-random').addEventListener('click', () => { ui.setup = RF.randomSetup(rng); render(); });
     $('btn-start').addEventListener('click', startGame);
     $('btn-new').addEventListener('click', () => {
-      if (ui.phase === 'play' && !confirm('Abandon this game and start a new one?')) return;
+      if (ui.phase === 'play' && !armed($('btn-new'), 'Sure?')) return;
       showTitle();
     });
     $('btn-again').addEventListener('click', newGame);
@@ -1577,7 +1577,7 @@
     $('btn-dl-all').addEventListener('click', dlAll);
     $('btn-pt-dl').addEventListener('click', dlAll);
     $('btn-pt-clear').addEventListener('click', () => {
-      if (!confirm('Delete all saved playtest records in this browser?')) return;
+      if (!armed($('btn-pt-clear'), 'Tap again to delete')) return;
       try { localStorage.removeItem('ringfence.playtests'); } catch (e) { /* ignore */ }
       renderPlaytestCount();
     });
@@ -1631,6 +1631,23 @@
     const lg = document.querySelector('.lg-stone');
     const u = PIX.url('virus');
     if (lg && u) { lg.style.setProperty('--lg-virus', 'url("' + u + '")'); lg.classList.add('px-ok'); }
+  }
+
+  // Two-tap confirmation, built into the button (some hosts block confirm()).
+  function armed(btn, prompt) {
+    if (btn.dataset.armed) {
+      clearTimeout(+btn.dataset.armed);
+      delete btn.dataset.armed;
+      btn.textContent = btn.dataset.label;
+      return true;
+    }
+    btn.dataset.label = btn.textContent;
+    btn.textContent = prompt;
+    btn.dataset.armed = String(setTimeout(() => {
+      delete btn.dataset.armed;
+      btn.textContent = btn.dataset.label;
+    }, 3000));
+    return false;
   }
 
   function renderSoundButtons() {

@@ -45,7 +45,7 @@ code { font-size: 0.9em; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface);
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand h1 { font-size: 18px; letter-spacing: 0.12em; margin: 0; }
