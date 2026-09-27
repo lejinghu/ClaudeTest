@@ -451,6 +451,87 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   .bug, .title-art img, .title-pick, .t-exfil, .hint-cell, .cell-hit.target, .token.up .gem { animation: none !important; }
 }
 .actions[hidden] { display: none; }
+
+/* ======================================== v0.8 dock: one thing at a time */
+.dock {
+  display: grid; gap: 8px; padding: 10px 12px;
+  background: var(--surface); border: 2px solid var(--grid-strong); border-radius: 6px; box-shadow: 4px 4px 0 var(--shadow);
+}
+.dock-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.chips:empty { display: none; }
+.chip { display: grid; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; min-width: 0; }
+.chip .k { font-family: var(--font-pixel); font-size: 6.5px; line-height: 1.5; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .v { font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+.chip .v small { font-size: 16px; color: var(--muted); }
+.chip .sub { font-size: 14px; line-height: 1.1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip.good .v { color: var(--accent); }
+.chip.foe .v { color: var(--stone); }
+.coach { display: grid; gap: 6px; font-size: 18px; line-height: 1.15; }
+.coach:empty { display: none; }
+.coach p { margin: 0; }
+.eyebrow { display: block; font-family: var(--font-pixel); font-size: 7px; line-height: 1.6; letter-spacing: 0.08em; text-transform: uppercase; color: var(--jewel); }
+.suggest-box {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  border: 2px dashed var(--jewel); border-radius: 4px; padding: 8px 10px; background: rgba(255, 210, 63, 0.06);
+}
+.suggest-box p { color: var(--muted); font-size: 16px; margin-top: 2px; }
+.suggest-box .btn { min-width: 84px; }
+.mi-cost { color: var(--jewel); font-size: 16px; white-space: nowrap; }
+.tap-tip { color: var(--muted); font-size: 15px; }
+.facts { display: grid; gap: 2px; }
+.facts span { color: var(--muted); font-size: 16px; }
+.menu { display: grid; gap: 6px; }
+.menu-item {
+  display: grid; gap: 2px; text-align: left; width: 100%; padding: 8px 10px; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 2px solid var(--line); border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--shadow); font: inherit; font-size: 18px; line-height: 1.1;
+}
+.menu-item:hover:not(:disabled), .menu-item:focus-visible { border-color: var(--accent); }
+.menu-item:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+.menu-item.warn { border-color: var(--zone); }
+.menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.mi-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.mi-why { color: var(--muted); font-size: 15px; }
+.linkish { justify-self: start; background: none; border: 0; padding: 2px 0; color: var(--muted); font: inherit; font-size: 16px; text-decoration: underline; cursor: pointer; }
+.recent { display: grid; gap: 1px; font-size: 15px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; }
+.recent .big { color: var(--text); }
+.dock-buttons { margin-top: 0; }
+.dock-buttons[hidden] { display: none; }
+.setup { display: grid; gap: 6px; font-size: 18px; }
+.setup p { margin: 0; }
+.setup .row { margin-top: 2px; }
+.card > summary { font-family: var(--font-pixel); font-size: 10px; line-height: 1.6; cursor: pointer; }
+.card[open] > summary { margin-bottom: 8px; }
+.more .legend { margin: 8px 0 0; }
+.more .meters, .more .threat-box { margin-bottom: 8px; }
+.hint-edge { fill: var(--jewel); animation: blink 0.8s steps(2) infinite; pointer-events: none; }
+.edge-hint.iso { fill: color-mix(in srgb, var(--stone) 70%, transparent); }
+.lg-hint { width: 14px; height: 14px; border: 2px dashed var(--jewel); border-radius: 3px; }
+
+/* Phones and narrow windows: the dock is a HUD fixed to the bottom. */
+@media (max-width: 919px) {
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    max-height: 50vh; max-height: 50dvh; overflow-y: auto; overscroll-behavior: contain;
+    border-width: 2px 0 0; border-radius: 0; box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.5);
+    padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  body { padding-bottom: var(--dock-h, 260px); }
+  .toast { bottom: calc(var(--dock-h, 260px) + 12px); }
+}
+[hidden] { display: none !important; }
+.chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 919px) {
+  .chip { padding: 3px 6px; }
+  .chip .v { font-size: 22px; }
+  .dock { gap: 6px; }
+  .dock .btn { min-height: 40px; }
+  /* Keep the whole board visible above the dock. */
+  #board { max-height: calc(100vh - var(--dock-h, 260px) - 70px); max-height: calc(100dvh - var(--dock-h, 260px) - 70px); }
+  .board-wrap { padding: 2px; }
+  .layout { padding-top: 8px; }
+}
 </style>
 </head>
 <body>
@@ -471,65 +552,54 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
 <main class="layout">
   <section class="board-wrap" aria-label="Game board">
     <svg id="board" role="img" aria-label="Datacenter board"></svg>
-    <ul class="legend" aria-label="Legend">
-      <li><span class="lg lg-stone"></span>Attacker stone (virus)</li>
-      <li><span class="lg lg-wall"></span>Wall</li>
-      <li><span class="lg lg-fence"></span>Ring-fence</li>
-      <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
-      <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
-      <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
-      <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened DNS)</li>
-      <li><span class="lg lg-dep"></span>Shared services an app uses (NTP, DNS, LDAP)</li>
-      <li><span class="lg lg-comp"></span>Compromised app (blast radius)</li>
-      <li><span class="lg lg-odds">37%</span>Attacker’s jewel odds for a token</li>
-    </ul>
   </section>
 
   <aside class="panel">
-    <div class="status-card">
-      <div id="status" class="status" aria-live="polite"></div>
-      <div id="pips" class="pips" aria-label="Actions left"></div>
-    </div>
-
-    <div id="meters" class="meters"></div>
-
-    <div id="threat" class="threat-box" aria-live="polite" hidden></div>
-
-    <div id="setup-panel" class="card" hidden>
-      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, each in a different app. The Attacker can see where your tokens are, but not what they are.</p>
-      <p class="muted small">Keep jewels away from row 1 and the storefront H, where the Attacker breaks in. Tap a cell to place a token (Jewels first). Tap a token to turn a Jewel into a Sensor, or to remove a Sensor. Tap another cell in the same app to move its token there. Careful: a Jewel on row 1 or in the storefront H sits on an exit.</p>
-      <p id="setup-msg" class="setup-msg"></p>
-      <div class="row">
-        <button id="btn-random" class="btn" type="button">Randomize</button>
-        <button id="btn-start" class="btn primary" type="button">Start game</button>
+    <div id="dock" class="dock">
+      <div class="dock-top">
+        <div id="status" class="status" aria-live="polite"></div>
+        <div id="pips" class="pips" aria-label="Actions left"></div>
       </div>
-    </div>
-
-    <div id="action-panel" class="card" hidden>
-      <div class="actions" id="actions">
-        <button class="act" data-action="observe" type="button"><span class="num">👁</span><span class="lbl">Observe</span><span class="cost">Map an app’s flows · free</span></button>
-        <button class="act" data-action="harden" type="button"><span class="num">🛡</span><span class="lbl">Harden</span><span class="cost">Close a backdoor · 2 Insight</span></button>
-        <button class="act" data-action="ringfence" type="button"><span class="num">◎</span><span class="lbl">Ring-fence</span><span class="cost">Secure an app · 3 Insight</span></button>
-        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Sensor</span><span class="cost">IDS/IPS trap · 1 Insight</span></button>
-        <button class="act" data-action="isolate" type="button"><span class="num">⛔</span><span class="lbl">Isolate</span><span class="cost">Emergency block · 2 Insight</span></button>
+      <div id="chips" class="chips"></div>
+      <div id="setup-panel" class="setup" hidden>
+        <p>Your <b>3 Crown Jewels</b> 💎 and <b>3 Sensors</b> ★ are hidden in your apps. The Attacker sees where they are, but not which is which.</p>
+        <p class="muted">Tap tokens to move them, or just start.</p>
+        <p id="setup-msg" class="setup-msg"></p>
+        <div class="row">
+          <button id="btn-random" class="btn" type="button">Shuffle</button>
+          <button id="btn-start" class="btn primary" type="button">Start</button>
+        </div>
       </div>
-      <div class="actions" id="actions-atk" hidden>
-        <button class="act" data-amode="move" type="button"><span class="num">🦠</span><span class="lbl">Move</span><span class="cost">Breach or spread · 1+ action</span></button>
-        <button class="act" data-amode="recon" type="button"><span class="num">🔍</span><span class="lbl">Recon</span><span class="cost">Peek at a token · 1 action</span></button>
-        <button class="act" data-amode="exfil" type="button"><span class="num">💾</span><span class="lbl">Exfil</span><span class="cost">Steal a found jewel · win</span></button>
-        <button class="act" data-amode="hint" type="button"><span class="num">💡</span><span class="lbl">Hint</span><span class="cost">What would the AI do?</span></button>
-      </div>
-      <div id="hint" class="hint"></div>
-      <div class="row">
+      <div id="coach" class="coach" aria-live="polite"></div>
+      <div id="dock-buttons" class="row dock-buttons">
         <button id="btn-undo" class="btn" type="button">Undo</button>
         <button id="btn-end" class="btn primary" type="button">End turn</button>
       </div>
     </div>
 
-    <div class="card log-card">
-      <h2>Event log</h2>
+    <details class="card more">
+      <summary>Details and legend</summary>
+      <div id="meters" class="meters"></div>
+      <div id="threat" class="threat-box" hidden></div>
+      <ul class="legend" aria-label="Legend">
+        <li><span class="lg lg-stone"></span>Attacker stone (virus)</li>
+        <li><span class="lg lg-wall"></span>Wall</li>
+        <li><span class="lg lg-fence"></span>Ring-fence</li>
+        <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
+        <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
+        <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
+        <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened DNS)</li>
+        <li><span class="lg lg-dep"></span>Shared services an app uses (NTP, DNS, LDAP)</li>
+        <li><span class="lg lg-comp"></span>Compromised app (blast radius)</li>
+        <li><span class="lg lg-hint"></span>Suggested move</li>
+        <li><span class="lg lg-odds">37%</span>Your odds a token is a jewel (Attacker side)</li>
+      </ul>
+    </details>
+
+    <details class="card log-card">
+      <summary>Event log</summary>
       <ol id="log" class="log"></ol>
-    </div>
+    </details>
 
     <details class="card settings">
       <summary>Settings</summary>
@@ -547,7 +617,8 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
           <option value="200">Fast</option>
         </select>
       </label>
-      <label class="check"><input type="checkbox" id="set-threat" /> Defender: highlight the Attacker’s quickest route to your jewels</label>
+      <label class="check"><input type="checkbox" id="set-suggest" /> Suggest a next move</label>
+      <label class="check"><input type="checkbox" id="set-threat" /> Defender: show the Attacker’s route when it gets close</label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
       <div class="playtest">
         <span id="pt-count" class="small muted"></span>
@@ -652,7 +723,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       <li>Walls, ring-fences and allowed flows are public. The Defender’s flow data is not.</li>
       <li><strong>Recon</strong> peeks at a face-down token. <strong>Exfil</strong> steals a revealed jewel connected to an exit, but not on the turn it was found, so you always get a turn to respond.</li>
     </ul>
-    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts as Defender: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn. As Attacker: 1 Move · 2 Recon · 3 Exfil · H hint · E end turn.</p>
+    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. How to act: tap a cell on the board to see what you can do there, or tap <b>Do it</b> on the suggested move. Keyboard: H does the suggestion, E ends your turn; as Defender also 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>
@@ -2710,8 +2781,8 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   // ------------------------------------------------------------ settings
 
   const params = new URLSearchParams(location.search);
-  const VERSION = 'v0.7';
-  const settings = { role: 'defender', level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true, muted: false, music: true };
+  const VERSION = 'v0.8';
+  const settings = { role: 'defender', level: 'normal', speed: '600', reasoning: false, swapRule: 'insight', showThreat: true, muted: false, music: true, suggest: true };
   try {
     Object.assign(settings, JSON.parse(localStorage.getItem('ringfence.settings') || '{}'));
   } catch (e) { /* storage unavailable: defaults are fine */ }
@@ -2771,8 +2842,10 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     record: null, // playtest record for the current game
     turnStart: 0,
     role: 'defender', // the side the human plays in the current game
-    amode: 'move', // Attacker role: move | recon | exfil
-    hint: null, // Attacker role: the suggested action
+    isoCell: null, // Isolate: the cell whose edges you can block
+    suggest: null, // the suggested next action, cached by suggestKey
+    suggestKey: null,
+    oppFrom: 0, // log index where the opponent's last turn started
   };
 
   function newStats() {
@@ -2823,8 +2896,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     ui.selected = null;
     ui.busy = false;
     ui.stats = newStats();
-    ui.amode = 'move';
-    ui.hint = null;
+    ui.suggestKey = null;
     hide('overlay-end');
     // As the Attacker, the Defender bot hides its tokens and moves first.
     if (ui.role === 'attacker') return startGame();
@@ -3011,6 +3083,8 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       toast('Outage! You blocked a real business flow. This can’t be undone.');
     }
     ui.mode = null;
+    ui.isoCell = null;
+    ui.selected = null;
     ui.pending = [];
     ui.draft = null;
     render();
@@ -3042,6 +3116,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   }
 
   function runAttacker() {
+    ui.oppFrom = ui.log.length;
     ui.busy = true;
     ui.recent = new Set();
     render();
@@ -3083,7 +3158,6 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   function attackerDo(action) {
     const s = ui.state;
     if (ui.busy || ui.phase !== 'play' || s.turn !== 'attacker') return;
-    ui.hint = null;
     const res = apply(action, 'A');
     if (!res) return render();
     recordAction('A', action, res.events);
@@ -3099,14 +3173,12 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       setTimeout(() => { ui.busy = false; endAttackerTurn(); }, Math.max(500, delay()));
       return;
     }
-    if (ui.amode !== 'move' && !legalFor(ui.amode).size) ui.amode = 'move';
     render();
   }
 
   function endAttackerTurn() {
     const s = ui.state;
     if (ui.busy || ui.phase !== 'play' || s.turn !== 'attacker') return;
-    ui.hint = null;
     if (ui.record) ui.record.turnMs.push(Date.now() - ui.turnStart);
     apply({ type: 'endTurn' }, 'A');
     if (s.winner) return finish();
@@ -3114,6 +3186,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   }
 
   function runDefenderBot() {
+    ui.oppFrom = ui.log.length;
     ui.busy = true;
     ui.recent = new Set();
     ui.mode = null;
@@ -3127,7 +3200,6 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       if (s.turn !== 'defender') {
         ui.busy = false;
         ui.fresh = -1;
-        ui.amode = 'move';
         ui.turnStart = Date.now();
         SND.play('turn');
         render();
@@ -3167,45 +3239,25 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     return out;
   }
 
+  // One tap does the only thing you can do there; otherwise show the options.
   function attackerClick(c) {
     const s = ui.state;
     if (ui.busy || s.turn !== 'attacker') {
-      ui.selected = c;
+      ui.selected = ui.selected === c ? null : c;
       return render();
     }
-    const tryModes = ui.amode === 'move' ? ['move', 'exfil', 'recon'] : [ui.amode];
-    for (const m of tryModes) {
-      const a = legalFor(m).get(c);
-      if (a) return attackerDo(a);
-    }
+    const items = cellMenu(c);
+    if (items.length === 1) return attackerDo(items[0].a);
     ui.selected = ui.selected === c ? null : c;
     render();
   }
 
-  function pickAttackerMode(m) {
-    if (ui.busy || ui.phase !== 'play' || ui.state.turn !== 'attacker') return;
-    if (m === 'hint') return showHint();
-    ui.amode = m;
-    ui.selected = null;
-    SND.play('click');
-    render();
+  function doSuggestion() {
+    const a = suggestion();
+    if (!a) return;
+    if (ui.role === 'attacker') return a.type === 'endTurn' ? endAttackerTurn() : attackerDo(a);
+    return a.type === 'endTurn' ? endDefenderTurn() : defenderDo(a);
   }
-
-  function showHint() {
-    const { action } = AI.chooseAction(ui.state, { level: 'normal', rng });
-    ui.hint = action;
-    SND.play('select');
-    render();
-  }
-
-  const describeAttack = (a) => {
-    const c = a.cell != null ? RF.cellName(a.cell) : '';
-    if (a.type === 'breach') return 'Breach into ' + c;
-    if (a.type === 'spread') { const n = RF.spreadCost(ui.state, a.cell); return 'Spread to ' + c + (n > 1 ? ' (' + n + ' actions)' : ''); }
-    if (a.type === 'recon') return 'Recon the token on ' + c;
-    if (a.type === 'exfil') return 'Exfiltrate the jewel on ' + c;
-    return 'End your turn';
-  };
 
   function finish() {
     ui.phase = 'over';
@@ -3293,10 +3345,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       return;
     }
     if (ui.mode === 'segment' && edgeEl) return segmentClick(edgeEl.dataset.edge);
-    if (ui.mode === 'isolate' && edgeEl) {
-      ui.draft = { edge: edgeEl.dataset.edge };
-      return render();
-    }
+    if (ui.mode === 'isolate' && edgeEl) return defenderDo({ type: 'isolate', edge: edgeEl.dataset.edge });
     if (ui.mode === 'allow' && edgeEl && ui.draft) {
       const k = edgeEl.dataset.edge;
       if (ui.draft.edges.has(k)) ui.draft.edges.delete(k);
@@ -3322,9 +3371,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
         return render();
       case 'ringfence':
         if (RF.isInfra(c)) return toast('Infrastructure cells are hardened, not ring-fenced.');
-        if (s.fenced[RF.REGION[c]]) return toast('App ' + RF.REGION[c] + ' is already ring-fenced.');
-        ui.draft = { app: RF.REGION[c] };
-        return render();
+        return defenderDo({ type: 'ringfence', app: RF.REGION[c] });
       case 'deploy':
         return defenderDo({ type: 'deploy', cell: c });
       case 'swap': {
@@ -3384,6 +3431,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     if (ui.busy || ui.phase !== 'play' || ui.state.turn !== 'defender') return;
     if (mode === 'assess') return defenderDo({ type: 'assess' });
     ui.mode = ui.mode === mode ? null : mode;
+    ui.isoCell = null;
     ui.pending = [];
     ui.draft = null;
     ui.selected = null;
@@ -3424,7 +3472,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     }
     if (s && ui.role === 'attacker') {
       if (ui.busy || ui.phase !== 'play') return out;
-      legalFor(ui.amode).forEach((a, c) => out.add(c));
+      ['move', 'exfil', 'recon'].forEach((m) => legalFor(m).forEach((a, c) => out.add(c)));
       return out;
     }
     if (!s || ui.busy || s.turn !== 'defender') return out;
@@ -3476,13 +3524,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
         el('rect', { class: 'infra-ring svc-' + reg, x: cx(i) + 3, y: cy(i) + 3, width: CS - 6, height: CS - 6, rx: 6 }, cells);
         el('text', { class: 't-infra', x: cx(i) + CS / 2, y: cy(i) + 15, 'text-anchor': 'middle' }, cells).textContent = reg;
         sprite(reg.toLowerCase(), cx(i) + CS / 2, cy(i) + 31, 22, cells, 'svc-icon');
-        if (!(s && s.hardened[i])) {
-          el('text', { class: 't-users', x: cx(i) + CS / 2, y: cy(i) + CS - 8, 'text-anchor': 'middle' }, cells).textContent =
-            '→ ' + RF.INFRA_USERS[reg].join(' ');
-        }
         if (s && s.hardened[i]) sprite('shield', cx(i) + CS / 2, cy(i) + 50, 17, cells, 'hard-shield');
-      } else {
-        sprite('rack', cx(i) + CS / 2, cy(i) + CS / 2 + 2, 30, cells, 'rack');
       }
       if (!infra && isFirstCellOfApp(i)) {
         let mark = '';
@@ -3580,12 +3622,16 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
         sprite((RF.rowOf(i) + RF.colOf(i)) % 2 ? 'virus2' : 'virus', x, y, 30, g, 'sprite');
       }
     }
-    // Attacker role: the suggested move, and moves that cost extra actions.
+    // The suggested action, outlined on the board.
+    const sug = !ui.mode && ui.selected == null ? suggestion() : null;
+    if (sug) {
+      const cells = sug.cell != null ? [sug.cell] : sug.app ? RF.APP_CELLS[sug.app] : [];
+      cells.forEach((c) => el('rect', { class: 'hint-cell', x: cx(c) + 3, y: cy(c) + 3, width: CS - 6, height: CS - 6, rx: 6, 'pointer-events': 'none' }, pieces));
+      if (sug.edge) wallRect(RF.EDGES[sug.edge], 'hint-edge', pieces, 5);
+    }
+    // Attacker role: moves that cost extra actions, and jewels ready to steal.
     if (s && ui.role === 'attacker' && ui.phase === 'play' && !ui.busy && s.turn === 'attacker') {
-      if (ui.hint && ui.hint.cell != null) {
-        el('rect', { class: 'hint-cell', x: cx(ui.hint.cell) + 3, y: cy(ui.hint.cell) + 3, width: CS - 6, height: CS - 6, rx: 6, 'pointer-events': 'none' }, pieces);
-      }
-      if (ui.amode === 'move') {
+      {
         legalFor('move').forEach((a, c) => {
           const n = a.type === 'spread' ? RF.spreadCost(s, c) : 1;
           if (n > 1) el('text', { class: 't-cost', x: cx(c) + CS - 5, y: cy(c) + 14, 'text-anchor': 'end' }, pieces).textContent = '×' + n;
@@ -3597,7 +3643,8 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     }
 
     // Threat highlight: the Attacker's quickest route to a real jewel.
-    const threat = settings.showThreat && s && ui.role === 'defender' && ui.phase === 'play' && s.turn === 'defender' ? AI.defenderThreat(s) : null;
+    let threat = settings.showThreat && s && ui.role === 'defender' && ui.phase === 'play' && s.turn === 'defender' ? AI.defenderThreat(s) : null;
+    if (threat && threatLevel(threat) === 'calm') threat = null;
     if (threat) {
       const g = el('g', { class: 'threat ' + threatLevel(threat), 'pointer-events': 'none' }, svg);
       threat.path.forEach((c) => {
@@ -3634,8 +3681,10 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       }
     }
     if (ui.mode === 'isolate' && s && !ui.busy) {
+      const near = ui.isoCell != null ? new Set(RF.NEIGHBORS[ui.isoCell].map((n) => n.key)) : null;
       for (const key in RF.EDGES) {
-        if (s.walls[key]) continue;
+        if (s.walls[key] || (near && !near.has(key))) continue;
+        wallRect(RF.EDGES[key], 'edge-hint iso', hits, 3);
         const e = RF.EDGES[key];
         const X = cx(e.b);
         const Y = cy(e.b);
@@ -3785,7 +3834,7 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     }
     if (t.recon && !t.faceUp) sprite('eye', x + r - 1, y - r + 1, 8, g, 'seen');
     // The Attacker's current jewel odds for this token (public information).
-    if (ui.state && !t.faceUp && !hasStone && !(ui.role === 'attacker' && t.type !== 'unknown')) {
+    if (ui.state && ui.role === 'attacker' && t.type === 'unknown' && !hasStone) {
       const odds = RF.attackerJewelOdds(ui.state)[c];
       if (odds != null) el('text', { class: 't-odds', x, y: y + r + 9, 'text-anchor': 'middle' }, g).textContent = Math.round(odds * 100) + '%';
     }
@@ -3826,6 +3875,11 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     return text;
   }
 
+  // ------------------------------------------------------------- the dock
+  // The panel is one compact "dock": status, four numbers, a coach line
+  // (what to do next, or the menu for the cell you tapped), and End turn.
+  // Everything else lives in collapsed sections below it.
+
   function renderPanel() {
     const s = ui.state;
     const status = $('status');
@@ -3833,46 +3887,28 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     status.className = 'status';
     pips.className = 'pips';
     $('setup-panel').hidden = ui.phase !== 'setup';
-    $('action-panel').hidden = ui.phase === 'setup' || ui.phase === 'title';
-    if (ui.phase === 'title') {
-      status.textContent = 'Choose your side';
+    $('dock-buttons').hidden = ui.phase !== 'play' && ui.phase !== 'over';
+    $('btn-undo').hidden = ui.role === 'attacker';
+    renderLog();
+    if (ui.phase === 'title' || ui.phase === 'setup') {
+      status.textContent = ui.phase === 'title' ? 'Choose your side' : 'Hide your Crown Jewels';
       pips.innerHTML = '';
+      $('chips').innerHTML = '';
+      $('coach').innerHTML = '';
       $('meters').innerHTML = '';
       $('threat').hidden = true;
-      renderLog();
+      if (ui.phase === 'setup') renderSetup();
       return;
     }
 
-    if (ui.phase === 'setup') {
-      status.textContent = 'Setup: hide your Crown Jewels';
-      pips.innerHTML = '';
-      const err = RF.validateSetup(ui.setup);
-      const msg = $('setup-msg');
-      const exposed = err ? [] : RF.exposedJewels(ui.setup);
-      msg.textContent = err || (exposed.length
-        ? '⚠ The jewel on ' + exposed.map(RF.cellName).join(' and ') + ' is next to a breach point (row 1 or the storefront H). The Attacker can reach it on its first turn. You can still start.'
-        : 'Ready. You go first.');
-      msg.className = 'setup-msg ' + (err ? 'bad' : exposed.length ? 'warn' : 'ok');
-      $('btn-start').disabled = !!err;
-      $('meters').innerHTML = '';
-      renderThreat();
-      renderLog();
-      return;
-    }
-
-    const atkRole = ui.role === 'attacker';
-    $('actions').hidden = atkRole;
-    $('actions-atk').hidden = !atkRole;
-    $('btn-undo').hidden = atkRole;
-    if (atkRole) return renderAttackerPanel();
-    const myTurn = s.turn === 'defender' && !s.winner;
-    if (s.winner) status.textContent = s.winner === 'defender' ? 'You win!' : 'The Attacker wins';
-    else if (myTurn) status.textContent = 'Round ' + s.round + ' of ' + RF.CONFIG.roundLimit + ': your move';
-    else {
-      status.textContent = 'Round ' + s.round + ': the Attacker is moving…';
-      status.classList.add('attacker');
-      pips.classList.add('attacker');
-    }
+    const atk = ui.role === 'attacker';
+    const mine = atk ? 'attacker' : 'defender';
+    const myTurn = s.turn === mine && !s.winner;
+    if (s.winner) status.textContent = s.winner === mine ? 'You win!' : (atk ? 'The Defender wins' : 'The Attacker wins');
+    else if (myTurn) status.textContent = 'Round ' + s.round + '/' + RF.CONFIG.roundLimit + ' · your move';
+    else status.textContent = 'Round ' + s.round + ' · ' + (atk ? 'Defender' : 'Attacker') + ' moving…';
+    status.classList.toggle('attacker', atk ? myTurn : !myTurn && !s.winner);
+    pips.classList.toggle('attacker', s.turn === 'attacker');
     pips.innerHTML = '';
     for (let n = 0; n < (s.turn === 'attacker' ? RF.CONFIG.attackerActions : RF.CONFIG.actionsPerTurn); n++) {
       const p = document.createElement('span');
@@ -3880,116 +3916,239 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       pips.appendChild(p);
     }
 
-    const scorePct = Math.max(0, Math.min(100, (100 * s.score) / RF.CONFIG.scoreTarget));
     const secure = RF.secureApps(s).length;
     const hardenedN = RF.INFRA_CELLS.filter((c) => s.hardened[c]).length;
     const ztRate = secure * RF.CONFIG.ztPerSecureApp + hardenedN * RF.CONFIG.ztPerHardened;
     const income = RF.CONFIG.incomeBase + secure * RF.CONFIG.incomePerSecureApp;
     const blast = RF.ransomedApps(s).length;
-    const blastPct = Math.min(100, (100 * blast) / RF.CONFIG.ransomwareApps);
-    const hiddenJewels = Object.values(s.tokens).filter((t) => t.type === 'jewel').length;
-    $('meters').innerHTML =
-      meter('Zero Trust points', s.score + '<small> / ' + RF.CONFIG.scoreTarget + ' · +' + ztRate + '/round</small>', scorePct, '') +
-      meter('Blast radius', blast + '<small> / ' + RF.CONFIG.ransomwareApps + ' apps</small>', blastPct, 'danger') +
-      meter('Insight', s.insight + '<small> · +' + income + ' next turn</small>', null, '') +
-      meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
-      '<div class="meter wide"><span>Secure apps <b>' + secure + '</b></span><span>Hardened <b>' + hardenedN + '/3</b></span><span>Outages <b' +
-      (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>Sensors <b>' + s.pool.sensor +
-      '</b></span><span>Walls <b>' + s.wallsLeft + '</b></span><span>Jewels hidden <b>' + hiddenJewels + '</b></span></div>';
+    const chip = (k, v, sub, cls) => '<div class="chip ' + (cls || '') + '"><span class="k">' + k + '</span><span class="v">' + v + '</span><span class="sub">' + sub + '</span></div>';
+    const zt = chip(atk ? 'Their Zero Trust' : 'Zero Trust', s.score + '<small>/' + RF.CONFIG.scoreTarget + '</small>', '+' + ztRate + ' a round', atk ? 'foe' : 'good');
+    const br = chip(atk ? 'Your blast radius' : 'Blast radius', blast + '<small>/' + RF.CONFIG.ransomwareApps + '</small>', 'apps hit', atk ? 'good' : 'foe');
+    $('chips').innerHTML = atk
+      ? br + zt + chip('Stones', s.stonesLeft, s.breachUsed || !myTurn ? 'breach used' : 'breach ready')
+      : zt + br + chip('Insight', s.insight, '+' + income + ' next turn');
 
-    // Action buttons.
-    const can = {
-      observe: Object.keys(RF.APPS).some((a) => s.observed[a] == null) && s.insight >= RF.CONFIG.observeCost,
-      assess: true,
-      harden: s.insight >= RF.CONFIG.hardenCost && RF.INFRA_CELLS.some((c) => !s.hardened[c]),
-      segment: s.insight >= RF.CONFIG.segmentCost && s.wallsLeft > 0 && RF.wallableEdges(s).length > 0,
-      allow: true,
-      ringfence: Object.keys(RF.APPS).some((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a)),
-      deploy: s.insight >= RF.CONFIG.deployCost && s.pool.sensor > 0,
-      swap: !s.swappedThisTurn && s.swapsUsed < RF.CONFIG.swapsPerGame && s.insight >= RF.CONFIG.swapCost,
-      isolate: s.insight >= RF.CONFIG.isolateCost && s.wallsLeft > 0,
-    };
     const active = myTurn && !ui.busy && ui.phase === 'play';
-    document.querySelectorAll('#actions .act').forEach((b) => {
-      const a = b.dataset.action;
-      b.disabled = !active || s.actionsLeft <= 0 || !can[a];
-      b.classList.toggle('active', ui.mode === a);
-    });
     $('btn-undo').disabled = !active || ui.undo.length === 0;
     const end = $('btn-end');
     end.disabled = !active;
-    end.classList.toggle('pulse', active && s.actionsLeft === 0);
-    renderHint(active);
-    renderThreat();
-    renderLog();
+    end.classList.toggle('pulse', active && (s.actionsLeft === 0 || (atk && !canAttackAnywhere())));
+    renderCoach(active);
+    renderDetails();
   }
 
-  // The panel when you play the Attacker.
-  function renderAttackerPanel() {
+  function renderSetup() {
+    const err = RF.validateSetup(ui.setup);
+    const msg = $('setup-msg');
+    const exposed = err ? [] : RF.exposedJewels(ui.setup);
+    msg.textContent = err || (exposed.length ? '⚠ A jewel on ' + exposed.map(RF.cellName).join(' and ') + ' sits next to a way in. You can still start.' : '');
+    msg.className = 'setup-msg ' + (err ? 'bad' : exposed.length ? 'warn' : 'ok');
+    $('btn-start').disabled = !!err;
+  }
+
+  const canAttackAnywhere = () => ['move', 'recon', 'exfil'].some((m) => legalFor(m).size > 0);
+
+  // The suggested next action, cached per position.
+  function suggestion() {
     const s = ui.state;
-    const status = $('status');
-    const pips = $('pips');
-    const myTurn = s.turn === 'attacker' && !s.winner;
-    if (s.winner) status.textContent = s.winner === 'attacker' ? 'You win!' : 'The Defender wins';
-    else if (myTurn) status.textContent = 'Round ' + s.round + ' of ' + RF.CONFIG.roundLimit + ': your move';
-    else status.textContent = 'Round ' + s.round + ': the Defender is moving…';
-    status.classList.toggle('attacker', myTurn);
-    pips.classList.toggle('attacker', true);
-    pips.innerHTML = '';
-    for (let n = 0; n < (s.turn === 'attacker' ? RF.CONFIG.attackerActions : RF.CONFIG.actionsPerTurn); n++) {
-      const p = document.createElement('span');
-      p.className = 'pip' + (n < s.actionsLeft && !s.winner ? ' on' : '');
-      pips.appendChild(p);
+    if (!s || !settings.suggest || ui.busy || s.winner || ui.phase !== 'play') return null;
+    const key = s.round + '|' + s.turn + '|' + s.actionsLeft + '|' + ui.log.length;
+    if (ui.suggestKey === key) return ui.suggest;
+    ui.suggestKey = key;
+    ui.suggest = null;
+    if (ui.role === 'attacker' && s.turn === 'attacker') {
+      ui.suggest = AI.chooseAction(s, { level: 'normal', rng: RF.makeRng('hint' + key) }).action;
+    } else if (ui.role === 'defender' && s.turn === 'defender' && s.actionsLeft > 0) {
+      ui.suggest = BOT.chooseAction(s, { strategy: 'careful' });
     }
+    return ui.suggest;
+  }
+
+  // One line on why an action is worth it, in the player's terms.
+  function why(a) {
+    const s = ui.state;
+    switch (a.type) {
+      case 'observe': return 'Security Intelligence maps its business flows by your next turn, so you can fence it without breaking anything.';
+      case 'harden': return 'Closes the backdoor into apps ' + RF.INFRA_USERS[RF.REGION[a.cell]].join(' ') + (RF.REGION[a.cell] === 'DNS' ? ', and the DNS exit' : '') + '. +1 Zero Trust every round.';
+      case 'ringfence': return s.observed[a.app] === -1
+        ? 'Allows its mapped flows and blocks everything else. A clean fenced app earns +1 Zero Trust and +1 Insight every round.'
+        : '⚠ Not mapped yet: its business flows will break (−' + RF.CONFIG.outagePenalty + ' each). Observe it first.';
+      case 'deploy': return 'A hidden trap. An attacker stepping on it is removed and loses the rest of its turn.';
+      case 'isolate': return 'Emergency block on the Attacker’s route. If a business flow runs there, it’s an outage (−' + RF.CONFIG.outagePenalty + ').';
+      case 'breach': return 'Get a foothold from the internet (once per turn).';
+      case 'spread': { const n = RF.spreadCost(s, a.cell); return 'Spread toward the jewels and more apps' + (n > 1 ? ', ' + n + ' actions to get across.' : '.'); }
+      case 'recon': return 'Find out whether that token is a Crown Jewel or a Sensor trap.';
+      case 'exfil': return 'Steal the jewel and win!';
+      default: return ui.role === 'attacker' ? 'Nothing useful left to do this turn.' : 'Save your Insight for next turn.';
+    }
+  }
+
+  function label(a) {
+    const c = a.cell != null ? RF.cellName(a.cell) : '';
+    switch (a.type) {
+      case 'observe': return '👁 Observe app ' + a.app;
+      case 'harden': return '🛡 Harden ' + RF.REGION[a.cell];
+      case 'ringfence': return '◎ Ring-fence app ' + a.app;
+      case 'deploy': return '★ Sensor on ' + c;
+      case 'isolate': { const e = RF.EDGES[a.edge]; return '⛔ Isolate ' + RF.cellName(e.a) + '–' + RF.cellName(e.b); }
+      case 'breach': return '🦠 Breach ' + c;
+      case 'spread': return '🦠 Spread to ' + c;
+      case 'recon': return '🔍 Recon ' + c;
+      case 'exfil': return '💾 Exfiltrate ' + c;
+      default: return 'End turn';
+    }
+  }
+
+  function cost(a) {
+    const C = RF.CONFIG;
+    switch (a.type) {
+      case 'observe': return C.observeCost ? C.observeCost + ' Insight' : 'free';
+      case 'harden': return C.hardenCost + ' Insight';
+      case 'ringfence': return RF.ringfenceCost(a.app) + ' Insight';
+      case 'deploy': return C.deployCost + ' Insight';
+      case 'isolate': return C.isolateCost + ' Insight';
+      case 'spread': { const n = RF.spreadCost(ui.state, a.cell); return n + ' action' + (n > 1 ? 's' : ''); }
+      case 'breach': case 'recon': return '1 action';
+      case 'exfil': return 'wins';
+      default: return '';
+    }
+  }
+
+  // What you can do on a cell you tapped.
+  function cellMenu(c) {
+    const s = ui.state;
+    const out = [];
+    if (ui.role === 'attacker') {
+      ['exfil', 'move', 'recon'].forEach((m) => { const a = legalFor(m).get(c); if (a) out.push({ a }); });
+      return out;
+    }
+    const legal = (a) => RF.act(RF.clone(s), a);
+    const push = (a) => {
+      if (!RF.CONFIG.enabledActions.includes(a.type)) return;
+      const r = legal(a);
+      out.push({ a, off: r.ok ? null : r.error });
+    };
+    if (RF.isInfra(c)) {
+      if (!s.hardened[c]) push({ type: 'harden', cell: c });
+    } else {
+      const app = RF.REGION[c];
+      if (s.observed[app] == null) push({ type: 'observe', app });
+      if (!s.fenced[app]) push({ type: 'ringfence', app });
+      if (!s.stones[c] && !s.tokens[c]) push({ type: 'deploy', cell: c });
+    }
+    if (RF.CONFIG.enabledActions.includes('isolate') && RF.NEIGHBORS[c].some((n) => !s.walls[n.key])) {
+      out.push({ isolate: c, off: s.insight < RF.CONFIG.isolateCost ? 'Isolate costs ' + RF.CONFIG.isolateCost + ' Insight.' : null });
+    }
+    return out;
+  }
+
+  // Short facts about a cell, for the menu header.
+  function cellFacts(c) {
+    const atk = ui.role === 'attacker' && ui.phase !== 'over';
+    const s = atk ? RF.attackerView(ui.state) : ui.state;
+    const reg = RF.REGION[c];
+    const facts = [];
+    let title;
+    if (RF.isInfra(c)) {
+      title = RF.cellName(c) + ' · ' + reg + ' service';
+      facts.push(s.hardened[c] ? '🛡 hardened' : 'backdoor into ' + RF.INFRA_USERS[reg].join(' ') + (reg === 'DNS' ? ' · an exit' : ''));
+    } else {
+      title = RF.cellName(c) + ' · app ' + reg + ' (' + RF.APPS[reg].name + ')';
+      if (s.fenced[reg]) facts.push('◎ fenced');
+      if (s.observed[reg] === -1) facts.push('👁 mapped');
+      else if (s.observed[reg] != null) facts.push('👁 mapping…');
+      else if (!atk) facts.push('not mapped');
+      facts.push('uses ' + RF.APPS[reg].uses.join(' '));
+      if (RF.APP_CELLS[reg].some((x) => s.stones[x])) facts.push('☣ attacker inside');
+    }
+    if (RF.isExit(s, c)) facts.push('exit');
+    const t = s.tokens[c];
+    if (t) {
+      if (t.type === 'unknown') facts.push('? token, ' + Math.round(RF.attackerJewelOdds(s)[c] * 100) + '% jewel');
+      else facts.push((t.type === 'jewel' ? '💎 ' : '★ ') + (atk ? '' : 'your ') + t.type + (t.faceUp ? ', found' : t.recon ? ', scouted' : ''));
+    }
+    return { title, facts };
+  }
+
+  function renderCoach(active) {
+    const s = ui.state;
+    const coach = $('coach');
+    const atk = ui.role === 'attacker';
+    let html = '';
+    const sel = ui.selected;
+    if (ui.phase === 'over') {
+      html = sel != null ? factsHtml(sel) : '<p class="muted">Game over. Every token and flow is revealed. Tap cells to review them.</p>';
+    } else if (!active) {
+      html = s.turn === (atk ? 'attacker' : 'defender') ? '<p class="muted">Ending your turn…</p>'
+        : '<p class="muted">' + (atk ? 'The Defender bot is moving…' : 'The Attacker is moving…') + '</p>' + recentHtml();
+    } else if (ui.mode === 'isolate') {
+      html = '<p><b>⛔ Isolate.</b> Tap a red edge' + (ui.isoCell != null ? ' next to ' + RF.cellName(ui.isoCell) : '') + ' to block it (' + RF.CONFIG.isolateCost + ' Insight).</p>' +
+        '<div class="row"><button class="btn" data-coach="cancel" type="button">Cancel</button></div>';
+    } else if (ui.mode) {
+      html = '<p>Tap a highlighted cell to ' + ui.mode + '.</p><div class="row"><button class="btn" data-coach="cancel" type="button">Cancel</button></div>';
+    } else if (sel != null) {
+      const items = cellMenu(sel);
+      ui.menuItems = items;
+      html = factsHtml(sel);
+      if (s.actionsLeft <= 0) html += '<p class="muted">No actions left this turn.</p>';
+      else if (!items.length) html += '<p class="muted">' + (atk ? 'You can’t act here right now.' : 'Nothing to do here.') + '</p>';
+      else html += '<div class="menu">' + items.map((it, n) => {
+        const a = it.a;
+        const lbl = a ? label(a) : '⛔ Isolate an edge';
+        const c = a ? cost(a) : RF.CONFIG.isolateCost + ' Insight';
+        const w = it.off || (a ? why(a) : 'Emergency block on an edge next to this cell. Breaking a business flow costs −' + RF.CONFIG.outagePenalty + '.');
+        const warn = a && a.type === 'ringfence' && s.observed[a.app] !== -1;
+        return '<button class="menu-item' + (warn ? ' warn' : '') + '" data-menu="' + n + '" type="button"' + (it.off ? ' disabled' : '') + '>' +
+          '<span class="mi-top"><b>' + esc(lbl) + '</b><span class="mi-cost">' + esc(c) + '</span></span><span class="mi-why">' + esc(w) + '</span></button>';
+      }).join('') + '</div>';
+      html += '<button class="linkish" data-coach="close" type="button">Close</button>';
+    } else {
+      const sug = suggestion();
+      if (s.actionsLeft <= 0) html = '<p>No actions left. Tap <b>End turn</b>' + (atk ? '' : ' (or Undo)') + '.</p>';
+      else if (sug) {
+        html = '<div class="suggest-box"><div><span class="eyebrow">Suggested · or tap the board</span><b>' + esc(label(sug)) + '</b>' +
+          (sug.type !== 'endTurn' ? ' <span class="mi-cost">' + esc(cost(sug)) + '</span>' : '') + '<p>' + esc(why(sug)) + '</p></div>' +
+          '<button class="btn primary" data-coach="do" type="button">Do it</button></div>';
+      } else {
+        html = '<p class="tap-tip">' + (atk ? 'Tap a red cell to move there.' : 'Tap an app or a service to act on it.') + '</p>';
+      }
+      html += recentHtml();
+    }
+    coach.innerHTML = html;
+  }
+
+  function factsHtml(c) {
+    const f = cellFacts(c);
+    return '<div class="facts"><b>' + esc(f.title) + '</b><span>' + f.facts.map(esc).join(' · ') + '</span></div>';
+  }
+
+  // The opponent's last moves, so you can see what just happened.
+  function recentHtml() {
+    const opp = ui.role === 'attacker' ? 'D' : 'A';
+    const since = ui.oppFrom || 0;
+    const lines = ui.log.slice(since).filter((l) => l.who === opp);
+    if (!lines.length) return '';
+    const pick = lines.filter((l) => l.big).concat(lines.filter((l) => !l.big)).slice(0, 2);
+    return '<div class="recent"><span class="eyebrow">' + (opp === 'A' ? 'Attacker' : 'Defender') + '’s last turn</span>' +
+      pick.map((l) => '<div class="' + (l.big ? 'big' : '') + '">' + esc(l.text.replace(/^(Attacker|Defender): /, '')) + '</div>').join('') + '</div>';
+  }
+
+  // The collapsed "Details" section: full numbers and the threat analysis.
+  function renderDetails() {
+    const s = ui.state;
     const secure = RF.secureApps(s).length;
     const hardenedN = RF.INFRA_CELLS.filter((c) => s.hardened[c]).length;
-    const ztRate = secure * RF.CONFIG.ztPerSecureApp + hardenedN * RF.CONFIG.ztPerHardened;
-    const blast = RF.ransomedApps(s).length;
-    const found = Object.values(s.tokens).filter((t) => t.faceUp && t.type === 'jewel').length;
     const fencedN = Object.keys(s.fenced).filter((a) => s.fenced[a]).length;
-    $('meters').innerHTML =
-      meter('Your blast radius', blast + '<small> / ' + RF.CONFIG.ransomwareApps + ' apps</small>', Math.min(100, (100 * blast) / RF.CONFIG.ransomwareApps), 'danger') +
-      meter('Defender Zero Trust', s.score + '<small> / ' + RF.CONFIG.scoreTarget + ' · +' + ztRate + '/round</small>', Math.max(0, Math.min(100, (100 * s.score) / RF.CONFIG.scoreTarget)), '') +
-      meter('Stones', s.stonesLeft + '<small> in hand</small>', null, '') +
-      meter('Round', s.round + '<small> / ' + RF.CONFIG.roundLimit + '</small>', null, '') +
-      '<div class="meter wide"><span>Jewels found <b>' + found + '</b></span><span>Sensors hit <b' + (ui.stats.sensorHits ? ' class="bad"' : '') + '>' + ui.stats.sensorHits +
-      '</b></span><span>Breach <b>' + (s.breachUsed || !myTurn ? 'used' : 'ready') + '</b></span><span>Def. Insight <b>' + s.insight + '</b></span><span>Fenced <b>' + fencedN +
-      '</b></span><span>Hardened <b>' + hardenedN + '/3</b></span></div>';
-
-    const active = myTurn && !ui.busy && ui.phase === 'play';
-    const n = { move: legalFor('move').size, recon: legalFor('recon').size, exfil: legalFor('exfil').size };
-    document.querySelectorAll('#actions-atk .act').forEach((b) => {
-      const m = b.dataset.amode;
-      b.disabled = !active || (m !== 'hint' && !n[m]);
-      b.classList.toggle('active', ui.amode === m);
-      b.classList.toggle('pulse', m === 'exfil' && active && n.exfil > 0);
-    });
-    const end = $('btn-end');
-    end.disabled = !active;
-    end.classList.toggle('pulse', active && !n.move && !n.recon && !n.exfil);
-    const hint = $('hint');
-    let html;
-    if (ui.phase === 'over') html = ui.selected != null ? esc(cellInfo(ui.selected)) : 'Game over. Every token and flow is now revealed. Tap cells to review them.';
-    else if (!active) html = ui.selected != null ? esc(cellInfo(ui.selected)) : 'The Defender bot is moving. Watch the board and the log.';
-    else if (ui.hint) {
-      html = '<b>Hint:</b> ' + esc(describeAttack(ui.hint)) + '.' +
-        '<div class="row"><button class="btn primary" data-hint="do-hint" type="button">Do it</button><button class="btn" data-hint="cancel" type="button">Dismiss</button></div>';
-    } else if (ui.amode === 'move') {
-      html = '<b>🦠 Move.</b> Tap a highlighted cell. ' + (s.breachUsed ? '' : '<b>Breach</b> in from row 1 or the storefront H (once per turn), or ') +
-        '<b>spread</b> from your stones. ×2 means crossing into another app, through an allowed flow or a service backdoor, costs extra actions. Face-down tokens might be Sensors!';
-      if (n.exfil) html += ' <b class="bad">A jewel is ready: tap EXFIL to win.</b>';
-      if (ui.selected != null) html += '<div class="small muted" style="margin-top:6px">' + esc(cellInfo(ui.selected)) + '</div>';
-    } else if (ui.amode === 'recon') {
-      html = '<b>🔍 Recon.</b> Tap a face-down token next to one of your stones to learn whether it is a Jewel or a Sensor (1 action).';
-    } else if (ui.amode === 'exfil') {
-      html = '<b>💾 Exfil.</b> Tap your stone on a revealed jewel. Its group needs a route to an exit: row 1, the storefront H, or an unhardened DNS.';
-    }
-    hint.innerHTML = html;
-    renderAttackerIntel();
-    renderLog();
+    const hidden = Object.values(s.tokens).filter((t) => t.type === 'jewel').length;
+    $('meters').innerHTML = '<div class="meter wide"><span>Secure apps <b>' + secure + '</b></span><span>Fenced <b>' + fencedN + '</b></span><span>Hardened <b>' + hardenedN + '/3</b></span>' +
+      '<span>Outages <b' + (s.outages ? ' class="bad"' : '') + '>' + s.outages + '</b></span><span>' + (ui.role === 'attacker' ? 'Their Insight' : 'Sensors left') + ' <b>' +
+      (ui.role === 'attacker' ? s.insight : s.pool.sensor) + '</b></span><span>Jewels ' + (ui.role === 'attacker' ? 'found' : 'hidden') + ' <b>' +
+      (ui.role === 'attacker' ? Object.values(s.tokens).filter((t) => t.faceUp && t.type === 'jewel').length : hidden) + '</b></span></div>';
+    if (ui.role === 'attacker') renderAttackerIntel();
+    else renderThreat();
   }
 
-  // Attacker role: a short briefing instead of the Defender's threat box.
+  // Attacker role: a short briefing.
   function renderAttackerIntel() {
     const box = $('threat');
     const s = ui.state;
@@ -4001,124 +4160,18 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     const bets = Object.keys(odds).map(Number).filter((c) => !v.tokens[c].faceUp && v.tokens[c].type !== 'sensor')
       .sort((a, b) => odds[b] - odds[a]).slice(0, 3);
     const lines = [];
-    let lvl = 'calm';
     found.forEach((c) => {
       const t = s.tokens[c];
       const out = RF.groupHasExit(s, RF.groupOf(s, c));
-      if (t.revealedRound === s.round && s.turn === 'attacker') lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> found. Keep a route to an exit open: you can exfiltrate it next turn.');
-      else if (out) { lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> is ready to <b>exfiltrate</b>!'); lvl = 'danger'; }
-      else lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b>: its group has no route to an exit. Connect it to row 1, H or an unhardened DNS.');
+      if (t.revealedRound === s.round && s.turn === 'attacker') lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> found. Keep a route to an exit open: you can steal it next turn.');
+      else if (out) lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> is ready to <b>exfiltrate</b>!');
+      else lines.push('💎 Jewel on <b>' + RF.cellName(c) + '</b> has no route to an exit. Connect it to row 1, H or an unhardened DNS.');
     });
     if (bets.length) lines.push('Best bets for a jewel: ' + bets.map((c) => '<b>' + RF.cellName(c) + '</b> ' + Math.round(odds[c] * 100) + '%').join(', ') + '.');
-    const held = RF.ransomedApps(s).length;
-    lines.push('Ransomware: footholds in <b>' + held + '</b> of ' + RF.CONFIG.ransomwareApps + ' apps' + (held >= RF.CONFIG.ransomwareApps - 2 ? ' (close!)' : '') + '.');
-    const dns = RF.INFRA_CELL.DNS;
-    if (!s.hardened[dns]) lines.push('<span class="muted">DNS is unhardened: it is a backdoor into ' + RF.INFRA_USERS.DNS.join(' ') + ' and an exit (DNS tunnelling).</span>');
-    box.className = 'threat-box intel ' + lvl;
-    box.innerHTML = '<b>Intel</b><div class="small" style="margin-top:4px">' + lines.join('<br>') + '</div>';
+    lines.push('Ransomware: footholds in <b>' + RF.ransomedApps(s).length + '</b> of ' + RF.CONFIG.ransomwareApps + ' apps.');
+    box.className = 'threat-box intel';
+    box.innerHTML = '<b>Intel</b><div class="small">' + lines.join('<br>') + '</div>';
   }
-
-  function meter(k, v, pct, cls) {
-    return '<div class="meter ' + cls + '"><div class="k">' + k + '</div><div class="v">' + v + '</div>' +
-      (pct == null ? '' : '<div class="bar"><span style="width:' + pct + '%"></span></div>') + '</div>';
-  }
-
-  function renderHint(active) {
-    const hint = $('hint');
-    const s = ui.state;
-    let html = '';
-    if (ui.phase === 'over') {
-      html = ui.selected != null ? esc(cellInfo(ui.selected)) : 'Game over. Tap cells to review them.';
-    } else if (!active) {
-      html = ui.selected != null ? esc(cellInfo(ui.selected)) : 'Watch the Attacker’s moves appear on the board and in the log.';
-    } else if (ui.mode === 'harden') {
-      html = 'Tap <b>NTP</b>, <b>DNS</b> or <b>LDAP</b> to harden it.' + cancelBtn();
-    } else if (ui.mode === 'segment') {
-      const n = ui.pending.length;
-      const cost = RF.segmentCost(n);
-      html = 'Tap any number of highlighted edges, then place them all in one action (' + RF.CONFIG.segmentCost + ' Insight per ' + RF.CONFIG.wallsPerInsight +
-        ' walls; ' + s.wallsLeft + ' left in your supply). Observed flows can’t be walled. Walling a flow you haven’t observed yet causes an outage.' +
-        '<div class="row">' + (n ? '<button class="btn primary" data-hint="commit" type="button"' + (s.insight >= cost ? '' : ' disabled') + '>Place ' + n + ' wall' +
-        (n > 1 ? 's' : '') + ' (' + cost + ' Insight)</button>' : '') +
-        '<button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
-    } else if (ui.mode === 'allow' && !ui.draft) {
-      html = '<b>Allow.</b> Ring-fencing already allows observed flows. Use this to add exceptions later: flows Security Intelligence found after you locked an app down, or manual guesses (+' +
-        RF.CONFIG.manualExceptionCost + ' Insight each). Tap an app to open its recommendation.' + cancelBtn();
-    } else if (ui.mode === 'allow') {
-      const d = ui.draft;
-      const edges = [...d.edges].filter((k) => !s.allows[k]);
-      const rec = edges.filter((k) => s.discovered[k]).length;
-      const manual = edges.length - rec;
-      const cost = RF.allowCost(s, edges);
-      const already = RF.appBorderEdges(d.app).filter((k) => s.allows[k]).length;
-      html = '<b>Exceptions for app ' + d.app + ' (' + esc(RF.APPS[d.app].name) + ')</b><br>' +
-        'Recommended: <b>' + rec + '</b> observed flow' + (rec === 1 ? '' : 's') + '. Manual: <b>' + manual + '</b>. Already open: ' + already + '.<br>' +
-        '<span class="muted small">Tap border edges to add or remove exceptions. Every exception is a path the Attacker can use too. Month-end flows stay invisible until round ' + RF.CONFIG.rareSeenRound + '.</span>' +
-        '<div class="row"><button class="btn primary" data-hint="publish" type="button"' + (edges.length && s.insight >= cost ? '' : ' disabled') + '>Publish ' + edges.length +
-        ' (' + cost + ' Insight)</button><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
-    } else if (ui.mode === 'ringfence' && ui.draft) {
-      const app = ui.draft.app;
-      const border = RF.appBorderEdges(app);
-      const open = border.filter((k) => s.allows[k]).length;
-      const blocked = border.filter((k) => !s.allows[k] && !s.walls[k] && RF.isOpen(s, k)).length;
-      const rec = RF.recommendedExceptions(s, app).length;
-      const cost = RF.ringfenceCost(app);
-      const early = s.observed[app] !== -1;
-      const noRare = false;
-      html = '<b>Lock down app ' + app + ' (' + esc(RF.APPS[app].name) + ')</b><br>Security Intelligence will allow <b>' + rec + '</b> observed flow' + (rec === 1 ? '' : 's') +
-        (open ? ' (' + open + ' exception' + (open === 1 ? '' : 's') + ' already open)' : '') + '. ' + (blocked - rec) + ' other edge' + (blocked - rec === 1 ? '' : 's') + ' will be blocked.' +
-        (early ? '<br><span class="bad">⚠ You haven’t observed this app' + (s.observed[app] != null ? ' yet (its flows show next turn)' : '') +
-          ': any business flow here will break (−' + RF.CONFIG.outagePenalty + ' points each).</span>'
-          : noRare ? '<br><span class="muted small">Month-end flows aren’t visible until round ' + RF.CONFIG.rareSeenRound + '. If one crosses this border it will break when it first runs.</span>' : '') +
-        '<div class="row"><button class="btn primary" data-hint="fence" type="button"' + (s.insight >= cost ? '' : ' disabled') + '>Lock down (' + cost +
-        ' Insight)</button><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
-    } else if (ui.mode === 'ringfence') {
-      html = '<b>◎ Ring-fence.</b> Tap an app to preview the lockdown. Observed flows are allowed automatically, everything else is blocked. ' +
-        'A secure (clean) fenced app earns +1 Zero Trust and +1 Insight every round. Remember its shared services: an unhardened one is still a backdoor in. Affordable now: ' +
-        (Object.keys(RF.APPS).filter((a) => !s.fenced[a] && s.insight >= RF.ringfenceCost(a))
-          .map((a) => a + ' (' + RF.ringfenceCost(a) + ')').join(', ') || 'none') + '.' + cancelBtn();
-    } else if (ui.mode === 'deploy') {
-      html = 'Tap an empty cell to place a face-down Sensor (' + s.pool.sensor + ' left). The Attacker sees you place it, so it knows it’s a Sensor, unless you later swap it.' + cancelBtn();
-    } else if (ui.mode === 'observe') {
-      html = '<b>👁 Observe.</b> Tap an app. Security Intelligence maps its business flows, and they show at the start of your next turn. ' +
-        'Ring-fencing an observed app allows exactly those flows, with no outages.' + cancelBtn();
-    } else if (ui.mode === 'isolate') {
-      const k = ui.draft && ui.draft.edge;
-      if (!k) {
-        html = '<b>⛔ Isolate.</b> Emergency block on <b>any</b> edge, even a known business flow or an allowed exception, for ' + RF.CONFIG.isolateCost +
-          ' Insight. If a business flow runs there, that’s an outage (−' + RF.CONFIG.outagePenalty + ' score) and it stays broken. Tap an edge.' + cancelBtn();
-      } else {
-        const e = RF.EDGES[k];
-        const known = s.discovered[k];
-        html = '<b>Isolate ' + RF.cellName(e.a) + '–' + RF.cellName(e.b) + '?</b><br>' +
-          (known ? '<span class="bad">This is a known business flow: blocking it is an outage (−' + RF.CONFIG.outagePenalty + ' score).</span>'
-            : 'Security Intelligence hasn’t seen a flow here. If one exists, it becomes an outage.') +
-          '<div class="row"><button class="btn primary" data-hint="isolate" type="button">Isolate (' + RF.CONFIG.isolateCost + ' Insight)</button>' +
-          '<button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
-      }
-    } else if (ui.mode === 'swap') {
-      const d = ui.draft || {};
-      const cost = [RF.CONFIG.swapCost ? RF.CONFIG.swapCost + ' Insight' : null, RF.CONFIG.swapScorePenalty ? '−' + RF.CONFIG.swapScorePenalty + ' score' : null].filter(Boolean).join(', ') || 'free';
-      if (d.b == null) {
-        html = '<b>Swap.</b> Tap two face-down tokens (not next to an attacker stone). You’ll then choose whether they really swap or you only pretend. The Attacker can’t tell, so its odds for both become the average. Cost: ' + cost + '.' + cancelBtn();
-      } else {
-        const ta = s.tokens[d.a];
-        const tb = s.tokens[d.b];
-        html = '<b>' + RF.cellName(d.a) + ' (' + ta.type + ') ⇄ ' + RF.cellName(d.b) + ' (' + tb.type + ')</b><br>Cost: ' + cost + '. Either way, the Attacker loses what it scouted on these two.' +
-          '<div class="row"><button class="btn primary" data-hint="swap-real" type="button">Really swap</button>' +
-          '<button class="btn" data-hint="swap-bluff" type="button">Bluff (don’t move)</button></div>' + cancelBtn();
-      }
-    } else if (s.actionsLeft === 0) {
-      html = 'No actions left. Tap <b>End turn</b>, or Undo to change your mind.';
-    } else if (ui.selected != null) {
-      html = esc(cellInfo(ui.selected));
-    } else {
-      html = 'Pick an action. Tap any cell to inspect it.';
-    }
-    hint.innerHTML = html;
-  }
-
-  const cancelBtn = () => '<div class="row"><button class="btn" data-hint="cancel" type="button">Cancel</button></div>';
 
   function renderLog() {
     const ol = $('log');
@@ -4155,33 +4208,34 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
 
   function wire() {
     $('board').addEventListener('click', onBoardClick);
-    $('actions').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-action]');
-      if (b && !b.disabled) pickMode(b.dataset.action);
-    });
-    $('hint').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-hint]');
+    $('coach').addEventListener('click', (e) => {
+      const m = e.target.closest('[data-menu]');
+      if (m && !m.disabled) {
+        const it = ui.menuItems && ui.menuItems[+m.dataset.menu];
+        if (!it) return;
+        if (it.isolate != null) {
+          ui.mode = 'isolate';
+          ui.isoCell = it.isolate;
+          ui.selected = null;
+          SND.play('select');
+          return render();
+        }
+        ui.selected = null;
+        return ui.role === 'attacker' ? attackerDo(it.a) : defenderDo(it.a);
+      }
+      const b = e.target.closest('[data-coach]');
       if (!b) return;
-      const h = b.dataset.hint;
-      if (h === 'cancel') { ui.mode = null; ui.pending = []; ui.draft = null; }
-      else if (h === 'publish') return publishAllow();
-      else if (h === 'isolate' && ui.draft && ui.draft.edge) return defenderDo({ type: 'isolate', edge: ui.draft.edge });
-      else if (h === 'fence') return confirmFence();
-      else if (h === 'do-hint' && ui.hint) return ui.hint.type === 'endTurn' ? endAttackerTurn() : attackerDo(ui.hint);
-      if (h === 'cancel') ui.hint = null;
-      else if (h === 'commit' && ui.pending.length) return defenderDo({ type: 'segment', edges: ui.pending.slice() });
-      else if (h === 'swap-real' || h === 'swap-bluff')
-        return defenderDo({ type: 'swap', a: ui.draft.a, b: ui.draft.b, really: h === 'swap-real' });
+      const h = b.dataset.coach;
+      if (h === 'do') return doSuggestion();
+      if (h === 'cancel') { ui.mode = null; ui.isoCell = null; ui.pending = []; ui.draft = null; }
+      if (h === 'close') ui.selected = null;
+      SND.play('click');
       render();
     });
     $('threat').addEventListener('click', (e) => {
       const b = e.target.closest('[data-suggest]');
       const sg = b && ui.suggestions && ui.suggestions[+b.dataset.suggest];
       if (sg) defenderDo(sg.action);
-    });
-    $('actions-atk').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-amode]');
-      if (b && !b.disabled) pickAttackerMode(b.dataset.amode);
     });
     $('btn-undo').addEventListener('click', undo);
     $('btn-end').addEventListener('click', () => (ui.role === 'attacker' ? endAttackerTurn() : endDefenderTurn()));
@@ -4237,6 +4291,9 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
     const threatBox = $('set-threat');
     threatBox.checked = !!settings.showThreat;
     threatBox.addEventListener('change', () => { settings.showThreat = threatBox.checked; saveSettings(); render(); });
+    const suggestBox = $('set-suggest');
+    suggestBox.checked = settings.suggest !== false;
+    suggestBox.addEventListener('change', () => { settings.suggest = suggestBox.checked; ui.suggestKey = null; saveSettings(); render(); });
 
     $('rate').addEventListener('click', (e) => {
       const b = e.target.closest('[data-rate]');
@@ -4279,26 +4336,22 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
       if (e.target.closest('select, input')) return;
       if (e.key === 'Escape') {
         hide('overlay-rules');
-        ui.hint = null;
+        ui.selected = null;
+        ui.isoCell = null;
         ui.mode = null;
         ui.pending = [];
         ui.draft = null;
         return render();
       }
       if (ui.phase !== 'play') return;
+      if (e.key === 'h' || e.key === 'H') return doSuggestion();
       if (ui.role === 'attacker') {
-        const amap = { 1: 'move', 2: 'recon', 3: 'exfil', h: 'hint', H: 'hint' };
-        if (amap[e.key]) {
-          const b = document.querySelector('#actions-atk [data-amode="' + amap[e.key] + '"]');
-          if (b && !b.disabled) pickAttackerMode(amap[e.key]);
-        } else if (e.key === 'e' || e.key === 'E') endAttackerTurn();
+        if (e.key === 'e' || e.key === 'E') endAttackerTurn();
         return;
       }
       const map = { 1: 'observe', 2: 'harden', 3: 'ringfence', 4: 'deploy', 5: 'isolate' };
-      if (map[e.key]) {
-        const b = document.querySelector('#actions [data-action="' + map[e.key] + '"]');
-        if (b && !b.disabled) pickMode(map[e.key]);
-      } else if (e.key === 'u' || e.key === 'U') undo();
+      if (map[e.key]) pickMode(map[e.key]);
+      else if (e.key === 'u' || e.key === 'U') undo();
       else if (e.key === 'e' || e.key === 'E') endDefenderTurn();
     });
 
@@ -4348,6 +4401,10 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   }
 
   wire();
+  // Keep the page scrollable past the fixed dock on phones.
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => document.body.style.setProperty('--dock-h', ($('dock').offsetHeight + 12) + 'px')).observe($('dock'));
+  }
   paintSprites();
   renderSoundButtons();
   // ?role=attacker or ?role=defender skips the title screen.

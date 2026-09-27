@@ -3,8 +3,8 @@
 *A two-player asymmetric strategy game about lateral movement and Zero Trust.
 You can learn the rules in ten minutes. Mastering them takes much longer.*
 
-Status: design draft **v0.6 (territory)**; the prototype is v0.7 (same
-rules, and you can play either side). Numbers are starting values for
+Status: design draft **v0.6 (territory)**; the prototype is v0.8 (same
+rules; play either side, board-first controls). Numbers are starting values for
 playtesting (Section 11). **Section 0 below is the current rule set.**
 Sections 1–10 describe earlier versions and keep their history. The
 v0.5 prototype is kept as `ringfence/v05.html` for comparison.
@@ -92,6 +92,18 @@ outages. Spend on income now, or on Sensors and Isolate to answer threats.
 the manual wall), Allow (ring-fence publishes the recommendation), Swap,
 global flow timeline and month-end surprises, and the any-service-to-
 any-service hub. Stage 3 (environments) is still not modelled.
+
+**What changed in v0.8 (prototype usability).** Phone feedback on v0.7:
+*"There are too many things going on, I don't know what to click, also too
+many things to click."* The rules are unchanged. The prototype now works
+board-first:
+- Tap a cell to get a menu of only the actions that fit it.
+- A suggested move with a one-line reason and a **Do it** button teaches the
+  playbook by example.
+- A compact dock replaces the stack of meters, action buttons and panels.
+  On phones it's pinned to the bottom of the screen.
+- A typical Defender action now takes 2 taps: the cell, then the action.
+  Following the suggestion takes 1.
 
 **What changed in v0.7 (play either side; the prototype's look and sound).**
 The rules are the same as v0.6. The prototype now opens on a title screen

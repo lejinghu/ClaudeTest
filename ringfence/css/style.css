@@ -436,3 +436,84 @@ body.role-attacker .cell-hit.target { fill: color-mix(in srgb, var(--stone) 16%,
   .bug, .title-art img, .title-pick, .t-exfil, .hint-cell, .cell-hit.target, .token.up .gem { animation: none !important; }
 }
 .actions[hidden] { display: none; }
+
+/* ======================================== v0.8 dock: one thing at a time */
+.dock {
+  display: grid; gap: 8px; padding: 10px 12px;
+  background: var(--surface); border: 2px solid var(--grid-strong); border-radius: 6px; box-shadow: 4px 4px 0 var(--shadow);
+}
+.dock-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.chips:empty { display: none; }
+.chip { display: grid; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; min-width: 0; }
+.chip .k { font-family: var(--font-pixel); font-size: 6.5px; line-height: 1.5; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .v { font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+.chip .v small { font-size: 16px; color: var(--muted); }
+.chip .sub { font-size: 14px; line-height: 1.1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip.good .v { color: var(--accent); }
+.chip.foe .v { color: var(--stone); }
+.coach { display: grid; gap: 6px; font-size: 18px; line-height: 1.15; }
+.coach:empty { display: none; }
+.coach p { margin: 0; }
+.eyebrow { display: block; font-family: var(--font-pixel); font-size: 7px; line-height: 1.6; letter-spacing: 0.08em; text-transform: uppercase; color: var(--jewel); }
+.suggest-box {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  border: 2px dashed var(--jewel); border-radius: 4px; padding: 8px 10px; background: rgba(255, 210, 63, 0.06);
+}
+.suggest-box p { color: var(--muted); font-size: 16px; margin-top: 2px; }
+.suggest-box .btn { min-width: 84px; }
+.mi-cost { color: var(--jewel); font-size: 16px; white-space: nowrap; }
+.tap-tip { color: var(--muted); font-size: 15px; }
+.facts { display: grid; gap: 2px; }
+.facts span { color: var(--muted); font-size: 16px; }
+.menu { display: grid; gap: 6px; }
+.menu-item {
+  display: grid; gap: 2px; text-align: left; width: 100%; padding: 8px 10px; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 2px solid var(--line); border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--shadow); font: inherit; font-size: 18px; line-height: 1.1;
+}
+.menu-item:hover:not(:disabled), .menu-item:focus-visible { border-color: var(--accent); }
+.menu-item:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+.menu-item.warn { border-color: var(--zone); }
+.menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.mi-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.mi-why { color: var(--muted); font-size: 15px; }
+.linkish { justify-self: start; background: none; border: 0; padding: 2px 0; color: var(--muted); font: inherit; font-size: 16px; text-decoration: underline; cursor: pointer; }
+.recent { display: grid; gap: 1px; font-size: 15px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; }
+.recent .big { color: var(--text); }
+.dock-buttons { margin-top: 0; }
+.dock-buttons[hidden] { display: none; }
+.setup { display: grid; gap: 6px; font-size: 18px; }
+.setup p { margin: 0; }
+.setup .row { margin-top: 2px; }
+.card > summary { font-family: var(--font-pixel); font-size: 10px; line-height: 1.6; cursor: pointer; }
+.card[open] > summary { margin-bottom: 8px; }
+.more .legend { margin: 8px 0 0; }
+.more .meters, .more .threat-box { margin-bottom: 8px; }
+.hint-edge { fill: var(--jewel); animation: blink 0.8s steps(2) infinite; pointer-events: none; }
+.edge-hint.iso { fill: color-mix(in srgb, var(--stone) 70%, transparent); }
+.lg-hint { width: 14px; height: 14px; border: 2px dashed var(--jewel); border-radius: 3px; }
+
+/* Phones and narrow windows: the dock is a HUD fixed to the bottom. */
+@media (max-width: 919px) {
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    max-height: 50vh; max-height: 50dvh; overflow-y: auto; overscroll-behavior: contain;
+    border-width: 2px 0 0; border-radius: 0; box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.5);
+    padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  body { padding-bottom: var(--dock-h, 260px); }
+  .toast { bottom: calc(var(--dock-h, 260px) + 12px); }
+}
+[hidden] { display: none !important; }
+.chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 919px) {
+  .chip { padding: 3px 6px; }
+  .chip .v { font-size: 22px; }
+  .dock { gap: 6px; }
+  .dock .btn { min-height: 40px; }
+  /* Keep the whole board visible above the dock. */
+  #board { max-height: calc(100vh - var(--dock-h, 260px) - 70px); max-height: calc(100dvh - var(--dock-h, 260px) - 70px); }
+  .board-wrap { padding: 2px; }
+  .layout { padding-top: 8px; }
+}

@@ -30,65 +30,54 @@
 <main class="layout">
   <section class="board-wrap" aria-label="Game board">
     <svg id="board" role="img" aria-label="Datacenter board"></svg>
-    <ul class="legend" aria-label="Legend">
-      <li><span class="lg lg-stone"></span>Attacker stone (virus)</li>
-      <li><span class="lg lg-wall"></span>Wall</li>
-      <li><span class="lg lg-fence"></span>Ring-fence</li>
-      <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
-      <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
-      <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
-      <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened DNS)</li>
-      <li><span class="lg lg-dep"></span>Shared services an app uses (NTP, DNS, LDAP)</li>
-      <li><span class="lg lg-comp"></span>Compromised app (blast radius)</li>
-      <li><span class="lg lg-odds">37%</span>Attacker’s jewel odds for a token</li>
-    </ul>
   </section>
 
   <aside class="panel">
-    <div class="status-card">
-      <div id="status" class="status" aria-live="polite"></div>
-      <div id="pips" class="pips" aria-label="Actions left"></div>
-    </div>
-
-    <div id="meters" class="meters"></div>
-
-    <div id="threat" class="threat-box" aria-live="polite" hidden></div>
-
-    <div id="setup-panel" class="card" hidden>
-      <p>Hide <strong>3 Crown Jewels</strong> and <strong>3 Sensors</strong>, each in a different app. The Attacker can see where your tokens are, but not what they are.</p>
-      <p class="muted small">Keep jewels away from row 1 and the storefront H, where the Attacker breaks in. Tap a cell to place a token (Jewels first). Tap a token to turn a Jewel into a Sensor, or to remove a Sensor. Tap another cell in the same app to move its token there. Careful: a Jewel on row 1 or in the storefront H sits on an exit.</p>
-      <p id="setup-msg" class="setup-msg"></p>
-      <div class="row">
-        <button id="btn-random" class="btn" type="button">Randomize</button>
-        <button id="btn-start" class="btn primary" type="button">Start game</button>
+    <div id="dock" class="dock">
+      <div class="dock-top">
+        <div id="status" class="status" aria-live="polite"></div>
+        <div id="pips" class="pips" aria-label="Actions left"></div>
       </div>
-    </div>
-
-    <div id="action-panel" class="card" hidden>
-      <div class="actions" id="actions">
-        <button class="act" data-action="observe" type="button"><span class="num">👁</span><span class="lbl">Observe</span><span class="cost">Map an app’s flows · free</span></button>
-        <button class="act" data-action="harden" type="button"><span class="num">🛡</span><span class="lbl">Harden</span><span class="cost">Close a backdoor · 2 Insight</span></button>
-        <button class="act" data-action="ringfence" type="button"><span class="num">◎</span><span class="lbl">Ring-fence</span><span class="cost">Secure an app · 3 Insight</span></button>
-        <button class="act" data-action="deploy" type="button"><span class="num">★</span><span class="lbl">Sensor</span><span class="cost">IDS/IPS trap · 1 Insight</span></button>
-        <button class="act" data-action="isolate" type="button"><span class="num">⛔</span><span class="lbl">Isolate</span><span class="cost">Emergency block · 2 Insight</span></button>
+      <div id="chips" class="chips"></div>
+      <div id="setup-panel" class="setup" hidden>
+        <p>Your <b>3 Crown Jewels</b> 💎 and <b>3 Sensors</b> ★ are hidden in your apps. The Attacker sees where they are, but not which is which.</p>
+        <p class="muted">Tap tokens to move them, or just start.</p>
+        <p id="setup-msg" class="setup-msg"></p>
+        <div class="row">
+          <button id="btn-random" class="btn" type="button">Shuffle</button>
+          <button id="btn-start" class="btn primary" type="button">Start</button>
+        </div>
       </div>
-      <div class="actions" id="actions-atk" hidden>
-        <button class="act" data-amode="move" type="button"><span class="num">🦠</span><span class="lbl">Move</span><span class="cost">Breach or spread · 1+ action</span></button>
-        <button class="act" data-amode="recon" type="button"><span class="num">🔍</span><span class="lbl">Recon</span><span class="cost">Peek at a token · 1 action</span></button>
-        <button class="act" data-amode="exfil" type="button"><span class="num">💾</span><span class="lbl">Exfil</span><span class="cost">Steal a found jewel · win</span></button>
-        <button class="act" data-amode="hint" type="button"><span class="num">💡</span><span class="lbl">Hint</span><span class="cost">What would the AI do?</span></button>
-      </div>
-      <div id="hint" class="hint"></div>
-      <div class="row">
+      <div id="coach" class="coach" aria-live="polite"></div>
+      <div id="dock-buttons" class="row dock-buttons">
         <button id="btn-undo" class="btn" type="button">Undo</button>
         <button id="btn-end" class="btn primary" type="button">End turn</button>
       </div>
     </div>
 
-    <div class="card log-card">
-      <h2>Event log</h2>
+    <details class="card more">
+      <summary>Details and legend</summary>
+      <div id="meters" class="meters"></div>
+      <div id="threat" class="threat-box" hidden></div>
+      <ul class="legend" aria-label="Legend">
+        <li><span class="lg lg-stone"></span>Attacker stone (virus)</li>
+        <li><span class="lg lg-wall"></span>Wall</li>
+        <li><span class="lg lg-fence"></span>Ring-fence</li>
+        <li><span class="lg lg-flow"></span>Observed flow, not allowed yet</li>
+        <li><span class="lg lg-allow"></span>Exception (allow rule)</li>
+        <li><span class="lg lg-emergency"></span>Emergency allow (after an outage)</li>
+        <li><span class="lg lg-exit"></span>Exit (row 1, storefront H, unhardened DNS)</li>
+        <li><span class="lg lg-dep"></span>Shared services an app uses (NTP, DNS, LDAP)</li>
+        <li><span class="lg lg-comp"></span>Compromised app (blast radius)</li>
+        <li><span class="lg lg-hint"></span>Suggested move</li>
+        <li><span class="lg lg-odds">37%</span>Your odds a token is a jewel (Attacker side)</li>
+      </ul>
+    </details>
+
+    <details class="card log-card">
+      <summary>Event log</summary>
       <ol id="log" class="log"></ol>
-    </div>
+    </details>
 
     <details class="card settings">
       <summary>Settings</summary>
@@ -106,7 +95,8 @@
           <option value="200">Fast</option>
         </select>
       </label>
-      <label class="check"><input type="checkbox" id="set-threat" /> Defender: highlight the Attacker’s quickest route to your jewels</label>
+      <label class="check"><input type="checkbox" id="set-suggest" /> Suggest a next move</label>
+      <label class="check"><input type="checkbox" id="set-threat" /> Defender: show the Attacker’s route when it gets close</label>
       <label class="check"><input type="checkbox" id="set-reasoning" /> Show the AI’s reasoning in the log</label>
       <div class="playtest">
         <span id="pt-count" class="small muted"></span>
@@ -211,7 +201,7 @@
       <li>Walls, ring-fences and allowed flows are public. The Defender’s flow data is not.</li>
       <li><strong>Recon</strong> peeks at a face-down token. <strong>Exfil</strong> steals a revealed jewel connected to an exit, but not on the turn it was found, so you always get a turn to respond.</li>
     </ul>
-    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. Shortcuts as Defender: 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo · E end turn. As Attacker: 1 Move · 2 Recon · 3 Exfil · H hint · E end turn.</p>
+    <p class="muted small">Big decisions: which service to harden first (whose apps does it expose?), which apps to observe and secure (income or jewels?), and when to spend on Sensors or Isolate. How to act: tap a cell on the board to see what you can do there, or tap <b>Do it</b> on the suggested move. Keyboard: H does the suggestion, E ends your turn; as Defender also 1 Observe · 2 Harden · 3 Ring-fence · 4 Sensor · 5 Isolate · U undo.</p>
     <div class="row"><button id="btn-rules-close" class="btn primary" type="button">Got it</button></div>
   </div>
 </div>

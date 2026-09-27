@@ -4,6 +4,24 @@ A playable browser prototype of the RINGFENCE design
 ([`docs/RINGFENCE-GAME-DESIGN.md`](../docs/RINGFENCE-GAME-DESIGN.md), Section
 0 has the current rules).
 
+**v0.8: one thing at a time.** Phone playtesting showed too many buttons
+and panels at once.
+- The action buttons are gone. You tap a cell on the board, and a small menu
+  shows only what you can do there, with its cost and a one-line reason.
+- A **suggested move** is outlined on the board with a **Do it** button. As
+  Defender it comes from the `careful` bot; as Attacker, from the Normal AI.
+  You can switch suggestions off in Settings.
+- One compact dock shows three numbers, the suggestion or cell menu, the
+  opponent's last moves, Undo and End turn. On phones it's fixed to the
+  bottom of the screen and the board shrinks to stay fully visible above it.
+- Details, the legend, the event log and Settings are collapsed.
+- The board is cleaner: no server racks, no service-user labels, and the
+  Defender no longer sees the Attacker's jewel odds. The threat route only
+  shows when the Attacker is close.
+- As Attacker, tapping a red cell moves there in one tap. A menu only
+  appears when there's a choice, such as moving onto a token or scouting it
+  first.
+
 **v0.7: play either side, in pixel art with chiptune sound.**
 - The title screen asks which side you want:
   - **Defender** against the AI Attacker.
@@ -102,9 +120,9 @@ as a single downloaded or attached file.
 
 ### Keyboard shortcuts
 
-As Defender, `1`–`5` choose an action, `Esc` cancels, `U` undoes and `E`
-ends your turn. As Attacker, `1` is Move, `2` Recon, `3` Exfil, `H` a hint
-and `E` ends your turn.
+`H` does the suggested move and `E` ends your turn. As Defender, `1`–`5`
+also pick an action to use on the next cell you tap, `Esc` cancels and `U`
+undoes.
 
 ## Playtesting
 
